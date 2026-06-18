@@ -7,10 +7,11 @@
     "ccvitals": "index.js"
   },
   "scripts": {
-    "test": "node test-effort.js && node test-util.js"
+    "test": "node --test"
   },
   "files": [
     "*.js",
+    "!test-*.js",
     "hooks/**",
     "config.json",
     "README.md",
