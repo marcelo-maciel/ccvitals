@@ -1,0 +1,45 @@
+{
+  "name": "ccvitals",
+  "version": "1.0.0",
+  "description": "Operational HUD statusline for Claude Code — live session vitals: effort, subagents, rate-limit burn rate, context, cost. Incremental transcript parsing, plugin system.",
+  "main": "index.js",
+  "bin": {
+    "ccvitals": "index.js"
+  },
+  "scripts": {
+    "test": "node test-effort.js && node test-util.js"
+  },
+  "files": [
+    "*.js",
+    "hooks/**",
+    "config.json",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "claude-code",
+    "claude",
+    "anthropic",
+    "statusline",
+    "cli",
+    "developer-tools",
+    "productivity"
+  ],
+  "author": "Marcelo Maciel",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marcelo-maciel/ccvitals.git"
+  },
+  "homepage": "https://github.com/marcelo-maciel/ccvitals#readme",
+  "bugs": {
+    "url": "https://github.com/marcelo-maciel/ccvitals/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
