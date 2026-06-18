@@ -82,7 +82,10 @@ function atomicWrite(filePath, content) {
   const tmp = `${filePath}.tmp.${process.pid}`;
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(tmp, content);
+    // mode 0600: caches hold cost / rate-limit / account-adjacent data — keep them
+    // owner-only on shared *nix hosts. renameSync preserves the tmp file's perms.
+    // No-op on Windows (POSIX mode bits ignored), harmless.
+    fs.writeFileSync(tmp, content, { mode: 0o600 });
     fs.renameSync(tmp, filePath);
   } catch (e) {
     try { fs.unlinkSync(tmp); } catch {}

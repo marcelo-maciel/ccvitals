@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const {
-  C, SEP, EFFORT_CONFIG, colorByThreshold, formatDuration, logError, safeSlice,
+  C, SEP, EFFORT_CONFIG, colorByThreshold, formatDuration, logError, safeSlice, redact,
   ESTIMATED_STARTING_TOKENS, AGENT_WARN_SECS, AGENT_CRIT_SECS,
   MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
 } = require('./utils');
@@ -282,7 +282,7 @@ function buildTodoStr(lastTodos) {
   const active = lastTodos.find(t => t?.status === 'in_progress')
     || lastTodos.find(t => t?.status === 'pending');
   if (!active) return '';
-  const label = active.activeForm || active.content || '?';
+  const label = redact(active.activeForm || active.content || '?');
   const trimmed = safeSlice(label, 30) + (label.length > 30 ? '…' : '');
   return ` ${C.gray}| ${C.cyan}▸ ${trimmed} (${done}/${total})${C.reset}`;
 }

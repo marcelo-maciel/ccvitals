@@ -132,7 +132,10 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
     for (const line of content.split('\n').filter(Boolean)) {
       try {
         const msg = JSON.parse(line);
-        const contentStr = typeof msg.message?.content === 'string' ? msg.message.content : '';
+        // .trim() strips a trailing \r if a transcript ever lands with CRLF line
+        // endings (CC writes \n, but be robust across OSes) so the command-equality
+        // checks below don't silently miss a '/clear\r' record.
+        const contentStr = (typeof msg.message?.content === 'string' ? msg.message.content : '').trim();
         if (msg.isClearRequest || msg.type === 'clear' ||
             (msg.type === 'user' && (contentStr === '/clear' || contentStr.includes('<command-name>/clear</command-name>')))) {
           // A /clear record before any real user message means this file was BORN
@@ -217,8 +220,14 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
                 startTime: msg.timestamp || null,
               });
               // Latest TodoWrite wins — transcript order == chronological.
+              // Redact content/activeForm here so a secret pasted into a todo never
+              // persists raw to the state cache on disk (or renders raw in the bar).
               if (c.name === 'TodoWrite' && Array.isArray(c.input?.todos)) {
-                lastTodos = c.input.todos;
+                lastTodos = c.input.todos.map(td => (td && typeof td === 'object') ? {
+                  ...td,
+                  content: typeof td.content === 'string' ? redact(td.content) : td.content,
+                  activeForm: typeof td.activeForm === 'string' ? redact(td.activeForm) : td.activeForm,
+                } : td);
               }
             }
           }
