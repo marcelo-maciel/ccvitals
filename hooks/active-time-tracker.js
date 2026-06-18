@@ -21,7 +21,7 @@ function atomicWrite(file, content) {
   const tmp = `${file}.tmp.${process.pid}`;
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(tmp, content);
+    fs.writeFileSync(tmp, content, { mode: 0o600 });
     fs.renameSync(tmp, file);
   } catch { try { fs.unlinkSync(tmp); } catch {} }
 }
