@@ -195,20 +195,32 @@ function trackRateLimitSnapshot(rateLimits, sessionId, claudeDir) {
       }
       atomicWrite(file, JSON.stringify(cache));
     }
-    // Aggregate: pick snapshots whose resets_at == max(resets_at) per window,
-    // then take MAX used_percentage. Snapshots with stale resets_at (already past)
-    // are ignored — their data is no longer authoritative for the live window.
+    // Aggregate: pick the live window (max future resets_at — isolates week-turnover,
+    // old-window snapshots carry a different resets_at and never leak in), then take
+    // MAX used_percentage among snapshots observed in the last 2h. The 2h window drops
+    // pre-reset peaks after an admin balance reset (pct drops, resets_at stays) so they
+    // stop poisoning the number via MAX. When nothing is recent, fall back to the freshest
+    // snapshot — avoids under-reporting from an idle session still carrying a stale-low pct.
+    const RECENT_MS = 2 * 3600000; // ponytail: convergence window; admin reset auto-corrects in <=2h instead of the 24h TTL
     const agg = (window) => {
-      let bestReset = 0, bestPct = null;
       const nowSec = Math.floor(now / 1000);
+      let bestReset = 0;
       for (const s of Object.values(cache.sessions)) {
         const w = s[window];
         if (!w || w.used_percentage == null || !w.resets_at) continue;
-        if (w.resets_at < nowSec) continue;
-        if (w.resets_at > bestReset) { bestReset = w.resets_at; bestPct = w.used_percentage; }
-        else if (w.resets_at === bestReset && w.used_percentage > bestPct) bestPct = w.used_percentage;
+        if (w.resets_at >= nowSec && w.resets_at > bestReset) bestReset = w.resets_at;
       }
-      return bestReset ? { used_percentage: bestPct, resets_at: bestReset } : null;
+      if (!bestReset) return null;
+      let recentPct = null, freshPct = null, freshAt = 0;
+      for (const s of Object.values(cache.sessions)) {
+        const w = s[window];
+        if (!w || w.used_percentage == null || w.resets_at !== bestReset) continue;
+        const obs = s.observed_at || 0;
+        if (now - obs <= RECENT_MS && (recentPct == null || w.used_percentage > recentPct)) recentPct = w.used_percentage;
+        if (obs > freshAt) { freshAt = obs; freshPct = w.used_percentage; }
+      }
+      const pct = recentPct != null ? recentPct : freshPct;
+      return pct != null ? { used_percentage: pct, resets_at: bestReset } : null;
     };
     return { five_hour: agg('five_hour'), seven_day: agg('seven_day') };
   } catch (e) { logError('rl-snapshot', e); return null; }
