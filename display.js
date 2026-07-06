@@ -234,8 +234,6 @@ function _appendVersion(text, vText) {
 
 function buildLine1(p) {
   let s = `${p.updateStr}${p.errStr}${C.accent}${p.model}${C.reset}${p.effortStr}${p.fastStr}${p.ccVerStr || ''}${p.accountStr || ''}`;
-  s += p.costStr;
-  if (p.sessionDur) s += ` ${C.gray}| ${p.sessionDur}${C.reset}`;
   // Directory chip. When clickablePath is on, render the cwd as a plain file://
   // URL so auto-detecting terminals (Windows Terminal, iTerm2) make it
   // Ctrl/Cmd+clickable and open the folder. Falls back to the friendly path
@@ -288,7 +286,10 @@ function buildTodoStr(lastTodos) {
 }
 
 function buildLine2(p) {
-  return `${p.ctx}${p.rlStr}${p.cacheStr}${p.compactStr}${p.toolStr}${p.turnStr}${p.toolUsedStr}${p.todoStr || ''}`;
+  // Custo (~$sessão/~$30d) e duração da sessão vêm logo após o rate-limit (5h/7d),
+  // fechando a "linha de consumo". costStr já inclui o separador ` | `.
+  const durStr = p.sessionDur ? ` ${C.gray}| ${p.sessionDur}${C.reset}` : '';
+  return `${p.ctx}${p.cacheStr}${p.rlStr}${p.costStr}${durStr}${p.compactStr}${p.toolStr}${p.turnStr}${p.toolUsedStr}${p.todoStr || ''}`;
 }
 
 function computeSessionDur(firstTimestamp, transcriptPath, activeMs) {
