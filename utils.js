@@ -8,10 +8,10 @@ const AGENT_WARN_SECS = 300;
 const AGENT_CRIT_SECS = 600;
 const AGENT_ZOMBIE_SECS = 1800;
 // Baseline observado do setup atual (system prompt + tools + skills + memória),
-// calibrado contra /context (~35k = 4% em janela de 1M). Usado só como estimativa
-// de cold-start / fallback de post-compact, antes da primeira usage real. Revisar
-// se a carga de plugins/MCP/skills mudar bastante.
-const ESTIMATED_STARTING_TOKENS = 35000;
+// calibrado contra /context (~43k = 4.3% em janela de 1M, medido 2026-07-19). Usado
+// só como estimativa de cold-start / fallback de post-compact, antes da primeira
+// usage real. Revisar se a carga de plugins/MCP/skills mudar bastante.
+const ESTIMATED_STARTING_TOKENS = 43000;
 const MAX_RL_RESET_MINUTES = 7 * 24 * 60;
 const FIVE_HOURS_MS = 5 * 3600000;
 
