@@ -47,6 +47,26 @@ function _readConfig() {
   }
 }
 
+// Added-directory chip. `/add-dir` and `--add-dir` extend the session workspace
+// beyond cwd, and nothing else on the line reveals it — the dir chip only ever
+// shows cwd. Renders basenames so the chip answers WHICH directories, not just
+// how many, and stays hidden when none were added. Splits on both separators
+// instead of path.basename: the payload can carry win32 paths on any platform.
+const MAX_ADDED_DIRS_SHOWN = 3;
+const MAX_ADDED_DIRS_CHARS = 40;
+function buildAddedDirsStr(addedDirs) {
+  if (!Array.isArray(addedDirs)) return '';
+  const names = addedDirs
+    .filter(d => typeof d === 'string' && d.trim())
+    .map(d => d.trim().replace(/[\\/]+$/, ''))
+    .map(d => d.split(/[\\/]/).pop() || d)
+    .filter(Boolean);
+  if (names.length === 0) return '';
+  const hidden = names.length - MAX_ADDED_DIRS_SHOWN;
+  const list = names.slice(0, MAX_ADDED_DIRS_SHOWN).join(',') + (hidden > 0 ? `,+${hidden}` : '');
+  return `${SEP}\ud83d\udcc2${C.soft}+${names.length} ${safeSlice(list, MAX_ADDED_DIRS_CHARS)}${C.reset}`;
+}
+
 function buildContextBar(data, lastUsage, compactState) {
   const maxContext = detectContextSize(data.model?.id, data.context_window?.context_window_size);
   const maxDisplay = formatContextLabel(maxContext);
@@ -142,7 +162,7 @@ function _renderRl(rl, label, windowMs, apiAge, now, thresholds, agg) {
     // Burn rate delta: tokens%_used - time%_elapsed. >0 = ahead of pace (burning fast).
     const elapsedPct = Math.max(0, Math.min(100, (1 - resetMs / windowMs) * 100));
     const delta = Math.round(p - elapsedPct);
-    const dColor = delta >= 10 ? C.danger : delta <= -10 ? C.green : C.gray;
+    const dColor = delta >= 15 ? C.danger : delta <= -15 ? C.green : C.gray;
     const sign = delta > 0 ? '+' : '';
     s += `${dColor}(${sign}${delta}%)${C.reset}`;
     if (mins > 0 && mins <= MAX_RL_RESET_MINUTES) {
@@ -242,6 +262,7 @@ function buildLine1(p) {
   s += dirUrl
     ? `${SEP}\ud83d\udcc1 ${C.soft}${dirUrl}${C.reset}`
     : `${SEP}\ud83d\udcc1 ${p.dir}`;
+  s += buildAddedDirsStr(p.addedDirs);
   if (p.branch) s += `${SEP}\ud83d\udd00${p.branch} ${p.gitStatus}`;
   s += p.taskStr;
   return _appendVersion(s, `v${VERSION}`);
@@ -315,5 +336,5 @@ function computeSessionDur(firstTimestamp, transcriptPath, activeMs) {
 module.exports = {
   buildContextBar, buildCostStr, buildRateLimitsStr,
   buildAgentLines, buildEffortStr, buildLine1, buildLine2, computeSessionDur,
-  buildCacheStr, buildTodoStr,
+  buildCacheStr, buildTodoStr, buildAddedDirsStr,
 };
