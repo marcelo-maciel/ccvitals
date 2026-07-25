@@ -45,6 +45,9 @@ async function main(data) {
   const sessionId = data.session_id || '';
   const transcriptPath = data.transcript_path || '';
   const dir = data.worktree?.name || cwd;
+  // Directories brought in by /add-dir or --add-dir. Only cwd shows in the dir chip,
+  // so without this the extra workspace roots are invisible on the line.
+  const addedDirs = data.workspace?.added_dirs;
   const claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
   const settings = readSettings();
   // Priority: transcript /effort (typed, picker, or inherited across /clear) > stdin payload > persisted settings.
@@ -118,7 +121,7 @@ async function main(data) {
   const errStr = errs.length
     ? ` ${C.red}!${errs.length > 2 ? errs.length + ':' : ''}${errs.slice(-2).join(',')}${C.reset}` : '';
 
-  process.stdout.write(buildLine1({ updateStr, errStr, model, effortStr, ccVerStr, fastStr, accountStr, dir, cwd, branch, gitStatus, taskStr }) + '\n');
+  process.stdout.write(buildLine1({ updateStr, errStr, model, effortStr, ccVerStr, fastStr, accountStr, dir, cwd, addedDirs, branch, gitStatus, taskStr }) + '\n');
   process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, toolStr, turnStr, toolUsedStr, todoStr }) + '\n');
 
   const agentLines = buildAgentLines(t.agentMap, effort, model);

@@ -8,6 +8,7 @@ First public release.
 
 ### Highlights
 - Two-line dense layout with version chip.
+- Added-directory chip from `workspace.added_dirs`: count plus basenames of the directories brought in with `/add-dir` or `--add-dir`, capped at 3 names with the remainder aggregated, hidden when none were added.
 - Incremental transcript parsing with mtime/size/SHA1 head-fingerprint cache invalidation and a schema-versioned per-session state cache.
 - Effort level tracking: typed `/effort` args, picker confirmations, and inheritance across `/clear` (exact same-process predecessor via pid → sessionId history, mtime heuristic fallback; chained `/clear` supported). Levels: auto/low/medium/high/xhigh/max/ultracode.
 - Subagent tracking with spinner, per-agent context bar, model · effort badge, zombie cleanup, slow/stuck warnings, worktree marker.
