@@ -29,6 +29,13 @@ function _indexMtime(cwd) {
   return 0;
 }
 
+// Path of a single `git status --porcelain` entry. The status field is two columns
+// wide, but a blank index column (unstaged edit: " M file") is lost to the stdout
+// trim in runAsync, so match the status codes instead of slicing a fixed offset.
+function porcelainPath(line) {
+  return line.replace(/^[ MADRCUT?!]{1,2}\s+/, '');
+}
+
 async function collectGit(cwd, pushThresholds) {
   const pt = Array.isArray(pushThresholds) && pushThresholds.length === 2 ? pushThresholds : [3, 10];
   let branch = '';
@@ -97,7 +104,7 @@ async function collectGit(cwd, pushThresholds) {
   if (fileCount === 0) {
     gitStatus = `(0 files uncommitted, ${syncStatus})`;
   } else if (fileCount === 1) {
-    gitStatus = `(${porcelain.replace(/^.../, '')} uncommitted, ${syncStatus})`;
+    gitStatus = `(${porcelainPath(porcelain)} uncommitted, ${syncStatus})`;
   } else {
     gitStatus = `(${fileCount} files uncommitted, ${syncStatus})`;
   }
@@ -106,4 +113,4 @@ async function collectGit(cwd, pushThresholds) {
   return value;
 }
 
-module.exports = { collectGit };
+module.exports = { collectGit, porcelainPath };
