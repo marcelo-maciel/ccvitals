@@ -111,7 +111,7 @@ function buildContextBar(data, lastUsage, compactState) {
     pct = realTokens * 100 / maxContext;
   } else {
     // Genuine cold start: no measurement exists anywhere yet (CC hasn't built the
-    // prompt). Show the calibrated baseline estimate (~3.5% on 1M) until the first
+    // prompt). Show the calibrated baseline estimate (~4.6% on 1M) until the first
     // turn lands and current_usage fills in the real number.
     pct = ESTIMATED_STARTING_TOKENS * 100 / maxContext;
     pctPrefix = '~'; pctEstimated = true;
