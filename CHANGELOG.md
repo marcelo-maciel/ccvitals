@@ -19,5 +19,5 @@ First public release.
 - Account/plan badge with subscription type.
 - Secret redaction in last-user-message display (postgres/mysql/mongo URLs, tokens, JWTs, Bearer/x-api-key headers).
 - Todo progress display with active task label.
-- Active session time via hooks (UserPromptSubmit→Stop deltas) instead of wall clock.
+- Active session time via hooks (UserPromptSubmit→Stop deltas) instead of wall clock. A prompt arriving mid-turn closes the open span instead of discarding it, and the first-run bootstrap sums the gaps between transcript events — each capped at 5 minutes, and the gap that ends at a human prompt excluded — so tool execution counts as work while an idle session does not. The earlier bootstrap read every tool result as a human prompt (measured on a real transcript: 123 of 123 `user` lines, against 5 actual prompts), which dropped all tool time and reported 28m for a session that had worked 53m.
 - Zero hook registration required to install — just the `statusLine` command.
