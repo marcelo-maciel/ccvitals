@@ -9,13 +9,22 @@ const path = require('path');
 const os = require('os');
 
 const MAX_TURN_MS = 6 * 3600000; // cap anti-crash por turno (sync com io.js readActiveTime)
+// Teto por intervalo entre eventos consecutivos do transcript, usado só no bootstrap.
+// Intervalo acima disto é pausa (humano fora, sessão aberta à noite), não trabalho: uma
+// sessão real media 23h53m de relógio contra 53m48s de trabalho, e o maior intervalo dela
+// tinha 22,5h. 300s cobre com folga o passo legítimo mais longo observado (suíte de 75s).
+const MAX_GAP_MS = 300000;
 
-let input = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', c => input += c);
-process.stdin.on('error', () => process.exit(0));
-process.stdin.on('end', () => { try { run(JSON.parse(input)); } catch { process.exit(0); } });
-setTimeout(() => process.exit(0), 4000).unref();
+// Só como hook: `require` deste arquivo pelo teste não pode prender o stdin (o listener
+// de 'data' resume o stream e o processo nunca terminaria).
+if (require.main === module) {
+  let input = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', c => input += c);
+  process.stdin.on('error', () => process.exit(0));
+  process.stdin.on('end', () => { try { run(JSON.parse(input)); } catch { process.exit(0); } });
+  setTimeout(() => process.exit(0), 4000).unref();
+}
 
 function atomicWrite(file, content) {
   const tmp = `${file}.tmp.${process.pid}`;
@@ -26,13 +35,29 @@ function atomicWrite(file, content) {
   } catch { try { fs.unlinkSync(tmp); } catch {} }
 }
 
+// Resultado de tool também é mensagem `user`: o content é array e carrega um bloco
+// `tool_result` (o harness ainda anexa `toolUseResult`). Ler isso como prompt humano
+// fatia um turno em micro-trechos e descarta TODO o tempo de execução das tools —
+// medido num transcript real: 123 de 123 linhas `user` passavam como "prompt humano",
+// contra 5 prompts de verdade, e o bootstrap devolvia 28m onde havia 53m de trabalho.
+// Turno de subagente (isSidechain) não abre turno do humano.
+function isHumanPrompt(msg) {
+  if (msg.type !== 'user' || msg.isSidechain) return false;
+  if (msg.toolUseResult) return false;
+  const c = msg.message?.content;
+  if (typeof c === 'string') return !c.startsWith('<');
+  if (!Array.isArray(c)) return false;
+  return !c.some(part => part && part.type === 'tool_result');
+}
+
+// Trabalho = soma dos intervalos entre eventos consecutivos, tirando o intervalo que
+// TERMINA num prompt humano (aí quem pensava era o humano) e o que passa do teto de
+// ociosidade. Definição de intervalo, e não de span do turno: o span user→último
+// assistant engole a espera dentro do turno (AskUserQuestion, humano ausente), que numa
+// sessão real chegou a 22,5h num único turno.
 function bootstrapFromTranscript(transcriptPath) {
   if (!transcriptPath || !fs.existsSync(transcriptPath)) return 0;
-  let total = 0, userTs = null, lastAsstTs = null;
-  const flush = () => {
-    if (userTs && lastAsstTs && lastAsstTs >= userTs) total += lastAsstTs - userTs;
-    userTs = null; lastAsstTs = null;
-  };
+  const events = [];
   try {
     const content = fs.readFileSync(transcriptPath, 'utf8');
     for (const line of content.split('\n')) {
@@ -41,16 +66,16 @@ function bootstrapFromTranscript(transcriptPath) {
       if (!msg.timestamp) continue;
       const ts = new Date(msg.timestamp).getTime();
       if (!Number.isFinite(ts)) continue;
-      if (msg.type === 'user') {
-        const c = msg.message?.content;
-        const isRealUser = typeof c === 'string' ? !c.startsWith('<') : Array.isArray(c);
-        if (isRealUser) { flush(); userTs = ts; }
-      } else if (msg.type === 'assistant' && userTs) {
-        lastAsstTs = ts;
-      }
+      events.push({ ts, human: isHumanPrompt(msg) });
     }
-    flush();
-  } catch {}
+  } catch { return 0; }
+  events.sort((a, b) => a.ts - b.ts);
+  let total = 0;
+  for (let i = 1; i < events.length; i++) {
+    const gap = events[i].ts - events[i - 1].ts;
+    if (gap > MAX_GAP_MS || events[i].human) continue;
+    total += gap;
+  }
   return total;
 }
 
@@ -70,6 +95,13 @@ function run(payload) {
   }
   const now = Date.now();
   if (event === 'UserPromptSubmit') {
+    // Prompt que chega no MEIO do turno (enfileirado, ou enviado enquanto o agente
+    // trabalha) dispara este evento de novo. Sobrescrever o turnStart jogaria fora tudo
+    // que o turno já gastou, então fecha o trecho aberto antes de reabrir.
+    if (state.turnStart && now > state.turnStart) {
+      const delta = now - state.turnStart;
+      if (delta <= MAX_TURN_MS) state.totalMs += delta;
+    }
     state.turnStart = now;
   } else if (event === 'Stop') {
     if (state.turnStart && now > state.turnStart) {
@@ -83,3 +115,5 @@ function run(payload) {
   }
   atomicWrite(file, JSON.stringify(state));
 }
+
+module.exports = { bootstrapFromTranscript, isHumanPrompt, run, MAX_TURN_MS, MAX_GAP_MS };
