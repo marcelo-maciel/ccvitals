@@ -38,7 +38,7 @@ function _aggWindowDaysFromCfg() {
 
 function readSettings() {
   const defaults = {
-    effort: '', fastMode: false, aggWindowDays: 30,
+    effort: '', modelEfforts: {}, fastMode: false, aggWindowDays: 30,
     thresholds: { costSession: [15, 30], costMonthly: [300, 800], rateLimit: [50, 80], push: [3, 10] },
   };
   try {
@@ -49,6 +49,15 @@ function readSettings() {
     const s = JSON.parse(fs.readFileSync(_settingsPath, 'utf8'));
     const out = { ...defaults };
     out.effort = s.effortLevel || '';
+    // CC 2.1.251+: /effort persists per model under modelSettings[<canonical name>].effortLevel,
+    // which outranks the top-level effortLevel for that model. Kept as a flat name→level map.
+    const ms = s.modelSettings;
+    out.modelEfforts = {};
+    if (ms && typeof ms === 'object') {
+      for (const [name, v] of Object.entries(ms)) {
+        if (typeof v?.effortLevel === 'string') out.modelEfforts[name] = v.effortLevel;
+      }
+    }
     out.fastMode = s.fastMode === true;
     const th = s.statusline?.thresholds;
     if (th && typeof th === 'object') {
@@ -69,6 +78,20 @@ function readSettings() {
     const base = _settingsCache || defaults;
     return { ...base, aggWindowDays: _aggWindowDaysFromCfg() };
   }
+}
+
+// Persisted default effort for the model on stdin. CC keys modelSettings by the
+// canonical name (claude-fable-5-1) but matches its alias, date-suffixed and [1m]
+// forms — mirror that: exact after stripping a [..] suffix, else a canonical key
+// the id extends (claude-opus-5-20260101 → claude-opus-5). No match → effortLevel.
+function resolveDefaultEffort(settings, modelId) {
+  const id = String(modelId || '').replace(/\[[^\]]*\]$/, '');
+  const map = settings.modelEfforts || {};
+  if (id && map[id]) return map[id];
+  for (const name of Object.keys(map)) {
+    if (id.startsWith(`${name}-`)) return map[name];
+  }
+  return settings.effort;
 }
 
 // ─── Rolling cost (configurable window, race-safe, delta-tracked) ─────
@@ -293,7 +316,7 @@ function lookupTask(sessionId, claudeDir) {
 }
 
 module.exports = {
-  readSettings, trackMonthlyCost, trackRateLimitSnapshot,
+  readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot,
   readActiveTime, readCompactCount,
   writeBridgeFile, lookupTask,
 };

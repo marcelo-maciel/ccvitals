@@ -208,6 +208,15 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
           }
           compactSummaryTokens = Math.round(chars / 4);
         }
+        // CC 2.1.223+ stamps the effort actually sent to the API on every assistant
+        // record — the live truth for the session, including the persisted per-model
+        // default a fresh session starts with (no /effort record exists for it).
+        // Chronological last-wins reconciles it with the /effort records above.
+        // Sidechain (subagent) records carry the subagent's effort, not the parent's.
+        if (msg.type === 'assistant' && !msg.isSidechain && typeof msg.effort === 'string') {
+          const lvl = msg.effort.toLowerCase();
+          if (EFFORT_CONFIG[lvl]) lastEffort = lvl;
+        }
         if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
           for (const c of msg.message.content) {
             if (c.type === 'tool_use') {

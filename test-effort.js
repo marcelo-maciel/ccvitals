@@ -159,3 +159,51 @@ test('pid-chain-beats-mtime', () => {
   setLive('sF'); // CC swapped the live sessionId on /clear
   assert.strictEqual(parseTranscript(tF, 'sF', claudeDir).lastEffort, 'ultracode');
 });
+
+// ── Case 10: assistant-record `effort` (CC 2.1.223+) is the live truth
+// Fresh session, no /effort record: the persisted per-model default only shows up
+// stamped on the assistant record. Later /effort wins over an earlier record;
+// a later record wins over an earlier /effort; sidechain records are ignored.
+const assistantEff = (effort, ts, extra) => L({ type: 'assistant', effort, message: { role: 'assistant', content: [{ type: 'text', text: 'ok' }] }, timestamp: ts, ...extra });
+test('assistant-record-effort', () => {
+  const tA = writeT('sA1.jsonl',
+    userMsg('hello', '2026-09-03T10:00:00Z')
+    + assistantEff('medium', '2026-09-03T10:00:05Z'),
+    10);
+  assert.strictEqual(parseTranscript(tA, 'sA1', claudeDir).lastEffort, 'medium', 'fresh-session-record');
+
+  const tB = writeT('sA2.jsonl',
+    userMsg('hello', '2026-09-03T10:00:00Z')
+    + assistantEff('medium', '2026-09-03T10:00:05Z')
+    + userCmd('/effort', 'high', '2026-09-03T10:01:00Z')
+    + userStdout('Set effort level to high', '2026-09-03T10:01:01Z'),
+    9);
+  assert.strictEqual(parseTranscript(tB, 'sA2', claudeDir).lastEffort, 'high', 'effort-cmd-after-record');
+
+  const tC = writeT('sA3.jsonl',
+    userCmd('/effort', 'xhigh', '2026-09-03T10:00:00Z')
+    + userMsg('go', '2026-09-03T10:00:10Z')
+    + assistantEff('medium', '2026-09-03T10:00:15Z'),
+    8);
+  assert.strictEqual(parseTranscript(tC, 'sA3', claudeDir).lastEffort, 'medium', 'record-after-effort-cmd');
+
+  const tD = writeT('sA4.jsonl',
+    userMsg('go', '2026-09-03T10:00:00Z')
+    + assistantEff('high', '2026-09-03T10:00:05Z')
+    + assistantEff('low', '2026-09-03T10:00:06Z', { isSidechain: true })
+    + assistantEff('BOGUS', '2026-09-03T10:00:07Z'),
+    7);
+  assert.strictEqual(parseTranscript(tD, 'sA4', claudeDir).lastEffort, 'high', 'sidechain-and-invalid-ignored');
+});
+
+// ── Case 11: persisted default resolves modelSettings[model] before effortLevel
+test('resolve-default-effort', () => {
+  const { resolveDefaultEffort } = require('./io');
+  const s = { effort: 'xhigh', modelEfforts: { 'claude-fable-5-1': 'medium', 'claude-opus-5': 'high' } };
+  assert.strictEqual(resolveDefaultEffort(s, 'claude-fable-5-1'), 'medium', 'exact');
+  assert.strictEqual(resolveDefaultEffort(s, 'claude-fable-5-1[1m]'), 'medium', '1m-suffix');
+  assert.strictEqual(resolveDefaultEffort(s, 'claude-opus-5-20260101'), 'high', 'date-suffix');
+  assert.strictEqual(resolveDefaultEffort(s, 'claude-sonnet-5'), 'xhigh', 'no-match-falls-to-effortLevel');
+  assert.strictEqual(resolveDefaultEffort(s, undefined), 'xhigh', 'no-model-id');
+  assert.strictEqual(resolveDefaultEffort({ effort: '' }, 'claude-fable-5-1'), '', 'no-map-no-default');
+});
