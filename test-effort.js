@@ -194,15 +194,34 @@ test('assistant-record-effort', () => {
     + assistantEff('BOGUS', '2026-09-03T10:00:07Z'),
     7);
   assert.strictEqual(parseTranscript(tD, 'sA4', claudeDir).lastEffort, 'high', 'sidechain-and-invalid-ignored');
+
+  // Session-only modes: a record stamped with the underlying API level must not demote them.
+  const tE = writeT('sA5.jsonl',
+    userCmd('/effort', 'ultracode', '2026-09-03T10:00:00Z')
+    + userMsg('go', '2026-09-03T10:00:10Z')
+    + assistantEff('xhigh', '2026-09-03T10:00:15Z'),
+    6);
+  assert.strictEqual(parseTranscript(tE, 'sA5', claudeDir).lastEffort, 'ultracode', 'ultracode-survives-record');
+  const tF2 = writeT('sA6.jsonl',
+    userCmd('/effort', 'max', '2026-09-03T10:00:00Z')
+    + userMsg('go', '2026-09-03T10:00:10Z')
+    + assistantEff('xhigh', '2026-09-03T10:00:15Z')
+    + userCmd('/effort', 'medium', '2026-09-03T10:01:00Z')
+    + userStdout('Set effort level to medium', '2026-09-03T10:01:01Z')
+    + assistantEff('medium', '2026-09-03T10:01:05Z'),
+    5);
+  assert.strictEqual(parseTranscript(tF2, 'sA6', claudeDir).lastEffort, 'medium', 'effort-cmd-leaves-session-only');
 });
 
 // ── Case 11: persisted default resolves modelSettings[model] before effortLevel
 test('resolve-default-effort', () => {
   const { resolveDefaultEffort } = require('./io');
-  const s = { effort: 'xhigh', modelEfforts: { 'claude-fable-5-1': 'medium', 'claude-opus-5': 'high' } };
+  const s = { effort: 'xhigh', modelEfforts: { 'claude-fable-5': 'low', 'claude-fable-5-1': 'medium', 'claude-opus-5': 'high' } };
   assert.strictEqual(resolveDefaultEffort(s, 'claude-fable-5-1'), 'medium', 'exact');
   assert.strictEqual(resolveDefaultEffort(s, 'claude-fable-5-1[1m]'), 'medium', '1m-suffix');
   assert.strictEqual(resolveDefaultEffort(s, 'claude-opus-5-20260101'), 'high', 'date-suffix');
+  assert.strictEqual(resolveDefaultEffort(s, 'claude-opus-5-20260101[1m]'), 'high', 'date-and-1m-suffix');
+  assert.strictEqual(resolveDefaultEffort(s, 'claude-fable-5-2'), 'xhigh', 'shorter-key-must-not-prefix-match');
   assert.strictEqual(resolveDefaultEffort(s, 'claude-sonnet-5'), 'xhigh', 'no-match-falls-to-effortLevel');
   assert.strictEqual(resolveDefaultEffort(s, undefined), 'xhigh', 'no-model-id');
   assert.strictEqual(resolveDefaultEffort({ effort: '' }, 'claude-fable-5-1'), '', 'no-map-no-default');

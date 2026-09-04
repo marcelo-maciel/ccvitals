@@ -53,7 +53,7 @@ function readSettings() {
     // which outranks the top-level effortLevel for that model. Kept as a flat name→level map.
     const ms = s.modelSettings;
     out.modelEfforts = {};
-    if (ms && typeof ms === 'object') {
+    if (ms && typeof ms === 'object' && !Array.isArray(ms)) {
       for (const [name, v] of Object.entries(ms)) {
         if (typeof v?.effortLevel === 'string') out.modelEfforts[name] = v.effortLevel;
       }
@@ -81,17 +81,14 @@ function readSettings() {
 }
 
 // Persisted default effort for the model on stdin. CC keys modelSettings by the
-// canonical name (claude-fable-5-1) but matches its alias, date-suffixed and [1m]
-// forms — mirror that: exact after stripping a [..] suffix, else a canonical key
-// the id extends (claude-opus-5-20260101 → claude-opus-5). No match → effortLevel.
+// canonical name (claude-fable-5-1) and matches its [1m] and date-suffixed forms
+// to that entry — mirror that exactly (claude-opus-5-20260101[1m] → claude-opus-5);
+// a looser prefix match would let claude-fable-5 claim claude-fable-5-1.
+// No match → effortLevel.
 function resolveDefaultEffort(settings, modelId) {
-  const id = String(modelId || '').replace(/\[[^\]]*\]$/, '');
+  const id = String(modelId || '').replace(/\[[^\]]*\]$/, '').replace(/-\d{8}$/, '');
   const map = settings.modelEfforts || {};
-  if (id && map[id]) return map[id];
-  for (const name of Object.keys(map)) {
-    if (id.startsWith(`${name}-`)) return map[name];
-  }
-  return settings.effort;
+  return (id && map[id]) || settings.effort;
 }
 
 // ─── Rolling cost (configurable window, race-safe, delta-tracked) ─────
