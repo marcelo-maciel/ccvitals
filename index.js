@@ -14,7 +14,7 @@ const {
   buildAgentLines, buildEffortStr, buildLine1, buildLine2, computeSessionDur,
   buildCacheStr, buildTodoStr,
 } = require('./display');
-const { readSettings, trackMonthlyCost, trackRateLimitSnapshot, readActiveTime, readCompactCount, writeBridgeFile, lookupTask } = require('./io');
+const { readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot, readActiveTime, readCompactCount, writeBridgeFile, lookupTask } = require('./io');
 const { checkClaudeUpdate, formatUpdateStr, isNewer } = require('./update');
 const { readAccount, buildAccountStr } = require('./account');
 
@@ -50,10 +50,11 @@ async function main(data) {
   const addedDirs = data.workspace?.added_dirs;
   const claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
   const settings = readSettings();
-  // Priority: transcript /effort (typed, picker, or inherited across /clear) > stdin payload > persisted settings.
-  // CC 2.1.112+ stopped shipping effortLevel via stdin; transcript is authoritative for session-only modes.
-  // settings.effortLevel is the persisted DEFAULT — it can legitimately diverge from the live session effort.
-  let effort = data.effortLevel || settings.effort;
+  // Priority: transcript (assistant-record effort, /effort typed/picker, or inherited across /clear)
+  // > stdin payload > persisted settings. CC 2.1.112+ stopped shipping effortLevel via stdin.
+  // Settings are the persisted DEFAULT for this model (modelSettings[model] > effortLevel) — they
+  // can legitimately diverge from the live session effort, so they only cover the cold start.
+  let effort = data.effortLevel || resolveDefaultEffort(settings, data.model?.id);
   const { thresholds } = settings;
   // Prefer live signal from CC stdin; fall back to settings.json for backwards compat.
   const fastMode = (data.fastMode ?? data.model?.fast ?? settings.fastMode) === true;

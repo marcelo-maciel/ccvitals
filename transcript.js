@@ -17,6 +17,9 @@ const CACHE_SCHEMA = 2;
 // 2. Confirmation stdout: "Set effort level to LEVEL" — covers picker selections
 //    (bare /effort leaves command-args empty) and is trusted as-is: CC only
 //    confirms valid levels, so unknown future levels still render (gray fallback).
+// Levels CC applies to the current session only (never persisted to modelSettings).
+const SESSION_ONLY_EFFORTS = new Set(['ultracode', 'max']);
+
 function matchEffort(txt) {
   const out = txt.match(/<local-command-stdout>Set effort level to ([A-Za-z]+)/);
   if (out) return out[1].toLowerCase();
@@ -207,6 +210,17 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
             for (const part of c) if (part.type === 'text' && typeof part.text === 'string') chars += part.text.length;
           }
           compactSummaryTokens = Math.round(chars / 4);
+        }
+        // CC 2.1.223+ stamps the effort actually sent to the API on every assistant
+        // record — the live truth for the session, including the persisted per-model
+        // default a fresh session starts with (no /effort record exists for it).
+        // Chronological last-wins reconciles it with the /effort records above.
+        // Sidechain (subagent) records carry the subagent's effort, not the parent's.
+        // ultracode/max are session-only modes layered over an API level; a record
+        // stamped with the underlying level must not demote them (only /effort does).
+        if (msg.type === 'assistant' && !msg.isSidechain && typeof msg.effort === 'string') {
+          const lvl = msg.effort.toLowerCase();
+          if (EFFORT_CONFIG[lvl] && !(SESSION_ONLY_EFFORTS.has(lastEffort) && lvl !== lastEffort)) lastEffort = lvl;
         }
         if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
           for (const c of msg.message.content) {

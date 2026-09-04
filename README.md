@@ -22,7 +22,7 @@ Plus optional extra lines: live subagents (spinner, model · effort, elapsed, sl
 - **Subagent tracking** — spinner, model badge, effort, elapsed, zombie cleanup, slow/stuck warnings, worktree marker.
 - **Secret redaction** — postgres/mysql/mongo URLs, sk-/sk-ant-/ghp_/AKIA/SG./JWT tokens, Bearer/x-api-key headers, password assignments are scrubbed from the echoed last-user-message.
 - **Compact-boundary multi-flag** — resilient to Claude Code schema drift across versions.
-- **Effort capture from `/effort`** — works around CC 2.1.112+ removing `effortLevel` from the statusline stdin.
+- **Effort capture from the transcript** — reads the `effort` Claude Code stamps on every assistant record (2.1.223+) plus `/effort` commands, and resolves the per-model default from `modelSettings` in `settings.json` before the first response. Works around CC 2.1.112+ removing `effortLevel` from the statusline stdin.
 - **Added-directory chip** — `/add-dir` and `--add-dir` extend the workspace beyond cwd, and the dir chip only ever shows cwd. Renders count plus basenames, hidden when nothing was added.
 
 ## Install
