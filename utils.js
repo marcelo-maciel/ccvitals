@@ -8,13 +8,13 @@ const AGENT_WARN_SECS = 300;
 const AGENT_CRIT_SECS = 600;
 const AGENT_ZOMBIE_SECS = 1800;
 // Baseline observado do setup atual (system prompt + tools + skills + memória),
-// calibrado contra /context (~46k = 4.6% em janela de 1M, medido 2026-08-04). Usado
+// calibrado contra /context (~31.5k = 3.2% em janela de 1M, medido 2026-09-24). Usado
 // só como estimativa de cold-start / fallback de post-compact, antes da primeira
 // usage real. O payload de stdin do CC não decompõe esse piso pré-mensagem: traz
 // só ocupação total (current_usage / used_percentage / remaining_percentage), e no
 // cold start não há turn medida ainda. Não existe campo pra ler no lugar da
 // estimativa. Revisar se a carga de plugins/MCP/skills mudar bastante.
-const ESTIMATED_STARTING_TOKENS = 46000;
+const ESTIMATED_STARTING_TOKENS = 31500;
 const MAX_RL_RESET_MINUTES = 7 * 24 * 60;
 const FIVE_HOURS_MS = 5 * 3600000;
 
