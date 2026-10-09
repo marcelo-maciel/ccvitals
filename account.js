@@ -59,6 +59,8 @@ function readAccount() {
       email: oa.emailAddress || null,
       organizationRole: oa.organizationRole || null,
       subscriptionType,
+      // Rate-limit quota boundary: same user can hold separate quotas in a personal and a team org.
+      quotaKey: oa.accountUuid ? `${oa.accountUuid}:${oa.organizationUuid || ''}` : null,
     };
     _cacheKey = key;
     return _cache;

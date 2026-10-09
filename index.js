@@ -86,12 +86,13 @@ async function main(data) {
   const cost = data.cost?.total_cost_usd;
   const cost30d = trackMonthlyCost(cost, sessionId, claudeDir, settings.aggWindowDays);
   const costStr = buildCostStr(cost, cost30d, thresholds);
-  const rlAgg = trackRateLimitSnapshot(data.rate_limits, sessionId, claudeDir);
+  const account = readAccount();
+  const rlAgg = trackRateLimitSnapshot(data.rate_limits, sessionId, account?.quotaKey ?? null, claudeDir);
   const rlStr = buildRateLimitsStr(data.rate_limits, thresholds, t.lastApiTimestamp, rlAgg);
   const taskStr = lookupTask(sessionId, claudeDir);
   const effortStr = buildEffortStr(effort);
   const fastStr = fastMode ? `${C.yellow}\u26A1${C.reset}` : '';
-  const accountStr = buildAccountStr(readAccount());
+  const accountStr = buildAccountStr(account);
   // CC version is captured per session from transcript `version` field — refreshes naturally on new sessions.
   // Green = up-to-date, bright red = update available, soft gray = undetermined (first run / network err).
   // "Outdated" compares npm latest against the RUNNING session's version — a replaced

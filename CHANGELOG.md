@@ -12,7 +12,7 @@ First public release.
 - Incremental transcript parsing with mtime/size/SHA1 head-fingerprint cache invalidation and a schema-versioned per-session state cache.
 - Effort level tracking: the `effort` stamped on each assistant transcript record (CC 2.1.223+, sidechains excluded), typed `/effort` args, picker confirmations, and inheritance across `/clear` (exact same-process predecessor via pid → sessionId history, mtime heuristic fallback; chained `/clear` supported). Before the first response the persisted default comes from `modelSettings[<model>].effortLevel` (CC 2.1.251+, matched on the canonical name with `[1m]`/date suffixes stripped), falling back to `effortLevel` — a fresh session no longer shows the global default when the model has its own saved level. Levels: auto/low/medium/high/xhigh/max/ultracode.
 - Subagent tracking with spinner, per-agent context bar, model · effort badge, zombie cleanup, slow/stuck warnings, worktree marker.
-- Rate limits with cross-session aggregation (MAX across parallel sessions) and burn-rate delta (`tokens%_used − time%_elapsed`).
+- Rate limits with cross-session aggregation (MAX across parallel sessions of the same account and org; switching login never shows the previous account's quota) and burn-rate delta (`tokens%_used − time%_elapsed`).
 - Prompt-cache hit rate with absolute expiry timestamp (`exp HH:MM:SS`).
 - Compact counter resilient to Claude Code schema drift (JSONL flags OR PreCompact hook, whichever observes more).
 - Rolling 30-day cost tracking with thresholds, race-safe across sessions.

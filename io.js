@@ -186,7 +186,7 @@ function trackMonthlyCost(cost, sessionId, claudeDir, aggWindowDays = 30) {
 // every session's reading and aggregate MAX(used_percentage) across the snapshots
 // whose resets_at matches the most-recent observation — converging all terminals
 // onto the same number that actually matches the account-wide quota.
-function trackRateLimitSnapshot(rateLimits, sessionId, claudeDir) {
+function trackRateLimitSnapshot(rateLimits, sessionId, quotaKey, claudeDir) {
   if (!rateLimits || !sessionId) return null;
   const file = path.join(claudeDir, 'cache', 'rate-limit-snapshots.json');
   const read = () => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
@@ -197,6 +197,7 @@ function trackRateLimitSnapshot(rateLimits, sessionId, claudeDir) {
     const ttl = 24 * 86400000; // drop snapshots older than 24h
     const mine = {
       observed_at: now,
+      account: quotaKey,
       five_hour: rateLimits.five_hour
         ? { used_percentage: rateLimits.five_hour.used_percentage, resets_at: rateLimits.five_hour.resets_at }
         : null,
@@ -222,17 +223,20 @@ function trackRateLimitSnapshot(rateLimits, sessionId, claudeDir) {
     // stop poisoning the number via MAX. When nothing is recent, fall back to the freshest
     // snapshot — avoids under-reporting from an idle session still carrying a stale-low pct.
     const RECENT_MS = 2 * 3600000; // ponytail: convergence window; admin reset auto-corrects in <=2h instead of the 24h TTL
+    // Quota is per account+org: after a login switch the previous account's snapshots
+    // (often a later resets_at and a higher pct) would otherwise win both picks below.
+    const peers = Object.values(cache.sessions).filter(s => (s.account ?? null) === (quotaKey ?? null));
     const agg = (window) => {
       const nowSec = Math.floor(now / 1000);
       let bestReset = 0;
-      for (const s of Object.values(cache.sessions)) {
+      for (const s of peers) {
         const w = s[window];
         if (!w || w.used_percentage == null || !w.resets_at) continue;
         if (w.resets_at >= nowSec && w.resets_at > bestReset) bestReset = w.resets_at;
       }
       if (!bestReset) return null;
       let recentPct = null, freshPct = null, freshAt = 0;
-      for (const s of Object.values(cache.sessions)) {
+      for (const s of peers) {
         const w = s[window];
         if (!w || w.used_percentage == null || w.resets_at !== bestReset) continue;
         const obs = s.observed_at || 0;
