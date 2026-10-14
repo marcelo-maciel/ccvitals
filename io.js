@@ -375,8 +375,11 @@ function claimCacheAlarm(sessionId, expiresAt, claudeDir) {
   return true;
 }
 
-// Detached so the statusline doesn't wait out the clip. Windows only: the
-// statusline has no portable audio path, and other platforms simply stay silent.
+// Synchronous on purpose: a detached player dies with the statusline process (measured:
+// the child never ran its first statement once its node parent exited). The alarm fires
+// on an idle session, so no event cancels this render while the clip plays; the cost is
+// a statusline update held for the clip's length, once per cache window.
+// Windows only: the statusline has no portable audio path, other platforms stay silent.
 // The path travels in an env var, so no PowerShell quoting can break out of it.
 function playSound(file) {
   if (process.platform !== 'win32') return false;
@@ -384,19 +387,18 @@ function playSound(file) {
     logError('cache-alarm-sound', new Error(`sound file not found: ${file}`));
     return false;
   }
-  try {
-    require('child_process').spawn('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-Command',
-      '(New-Object Media.SoundPlayer $env:CCVITALS_ALARM_SOUND).PlaySync()',
-    ], {
-      detached: true, stdio: 'ignore', windowsHide: true,
-      env: { ...process.env, CCVITALS_ALARM_SOUND: file },
-    }).unref();
-    return true;
-  } catch (e) {
-    logError('cache-alarm-sound', e);
+  const r = require('child_process').spawnSync('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-Command',
+    '(New-Object Media.SoundPlayer $env:CCVITALS_ALARM_SOUND).PlaySync()',
+  ], {
+    stdio: 'ignore', windowsHide: true, timeout: 15000,
+    env: { ...process.env, CCVITALS_ALARM_SOUND: file },
+  });
+  if (r.error || r.status !== 0) {
+    logError('cache-alarm-sound', r.error || new Error(`player exited ${r.status}`));
     return false;
   }
+  return true;
 }
 
 module.exports = {
