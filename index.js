@@ -115,7 +115,6 @@ async function main(data) {
   // against schema drift on either side; whichever observes more wins.
   const compactCount = Math.max(t.compactCount, readCompactCount(transcriptPath, sessionId, claudeDir));
   const compactStr = compactCount > 0 ? ` ${C.gray}| ${C.orange}${compactCount}x compact${C.reset}` : '';
-  const toolUsedStr = t.lastToolUsed ? ` ${C.gray}| ${C.soft}${t.lastToolUsed}${C.reset}` : '';
   const cacheStr = buildCacheStr(data.prompt_cache);
   const todoStr = buildTodoStr(t.lastTodos);
   const errs = getErrors();
@@ -123,7 +122,7 @@ async function main(data) {
     ? ` ${C.red}!${errs.length > 2 ? errs.length + ':' : ''}${errs.slice(-2).join(',')}${C.reset}` : '';
 
   process.stdout.write(buildLine1({ updateStr, errStr, model, effortStr, ccVerStr, fastStr, accountStr, dir, cwd, addedDirs, branch, gitStatus, taskStr }) + '\n');
-  process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, turnStr, toolUsedStr, todoStr }) + '\n');
+  process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, turnStr, todoStr }) + '\n');
 
   const agentLines = buildAgentLines(t.agentMap, effort, model);
   if (agentLines) process.stdout.write(agentLines + '\n');

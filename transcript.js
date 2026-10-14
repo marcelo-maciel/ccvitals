@@ -35,7 +35,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
   const empty = {
     compactCount: 0, turnCount: 0, activeAgents: 0,
     lastUsage: null, lastUserMessage: '',
-    firstTimestamp: null, lastToolUsed: '', agentMap: new Map(),
+    firstTimestamp: null, agentMap: new Map(),
     lastApiTimestamp: null, lastEffort: '', lastTodos: null, ccVersion: '',
     lastCompactBoundaryTs: null, compactSummaryTokens: 0, sessionBaselineTokens: 0,
   };
@@ -43,7 +43,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
 
   let compactCount = 0, turnCount = 0, activeAgents = 0;
   let lastUsage = null, lastUserMessage = '';
-  let firstTimestamp = null, lastToolUsed = '', userSeen = false;
+  let firstTimestamp = null, userSeen = false;
   let lastApiTimestamp = null;
   let ccVersion = '';
   // Track post-compact transient state — CC's stdin remaining_percentage briefly
@@ -105,7 +105,6 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
           lastUserMessage = s.lastUserMessage || '';
           lastUsage = s.lastUsage || null;
           firstTimestamp = s.firstTimestamp || null;
-          lastToolUsed = s.lastToolUsed || '';
           userSeen = s.userSeen || false;
           lastApiTimestamp = s.lastApiTimestamp || null;
           lastEffort = s.lastEffort || '';
@@ -149,7 +148,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
           // (session duration shouldn't reset; rate-limit staleness is account-wide).
           compactCount = 0; turnCount = 0;
           lastUserMessage = ''; lastUsage = null; userSeen = false;
-          lastToolUsed = ''; lastTodos = null;
+          lastTodos = null;
           lastCompactBoundaryTs = null; compactSummaryTokens = 0; sessionBaselineTokens = 0;
           agentMap.clear(); completedAgents.clear();
           continue;
@@ -224,7 +223,6 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
         if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
           for (const c of msg.message.content) {
             if (c.type === 'tool_use') {
-              lastToolUsed = c.name || lastToolUsed;
               if (c.name === 'Agent') agentMap.set(c.id, {
                 desc: c.input?.description || '?', type: c.input?.subagent_type || '',
                 model: c.input?.model || '', effort: c.input?.effort || '',
@@ -282,7 +280,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
           path: transcriptPath, size: stat.size, mtimeMs, headFp,
           state: {
             compactCount, turnCount, lastUserMessage, lastUsage,
-            firstTimestamp, lastToolUsed, userSeen, lastApiTimestamp, lastEffort, clearBorn,
+            firstTimestamp, userSeen, lastApiTimestamp, lastEffort, clearBorn,
             lastTodos, ccVersion,
             lastCompactBoundaryTs, compactSummaryTokens, sessionBaselineTokens,
             agentMapEntries: [...agentMap.entries()],
@@ -298,7 +296,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
 
   return {
     compactCount, turnCount, activeAgents,
-    lastUsage, lastUserMessage, firstTimestamp, lastToolUsed, agentMap,
+    lastUsage, lastUserMessage, firstTimestamp, agentMap,
     lastApiTimestamp, lastEffort, lastTodos, ccVersion,
     lastCompactBoundaryTs, compactSummaryTokens, sessionBaselineTokens,
   };
