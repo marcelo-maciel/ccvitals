@@ -84,7 +84,7 @@ Opt-in, Windows only. Plays a sound once per cache window, `leadMinutes` before 
 }
 ```
 
-`sound` must be a `.wav` (played with `Media.SoundPlayer`); a missing file is logged and the window's alarm is skipped. The expiry comes from Claude Code's `prompt_cache` stdin field (2.1.251+). A lead that doesn't fit the TTL window (20 min on a 5m TTL) never fires. An idle session only re-runs the statusline if `refreshInterval` is set on `statusLine` in `settings.json` (e.g. `"refreshInterval": 30`, which makes the alarm at most 30 s late); without it the alarm fires only on the next event.
+`sound` must be a `.wav` (played with `Media.SoundPlayer`); a missing file is logged and the window's alarm is skipped. The expiry comes from Claude Code's `prompt_cache` stdin field (2.1.251+). A lead that doesn't fit the TTL window (20 min on a 5m TTL) never fires. An idle session only re-runs the statusline if `refreshInterval` is set on `statusLine` in `settings.json` (e.g. `"refreshInterval": 60`, which makes the alarm at most 60 s late); without it the alarm fires only on the next event.
 
 ### Environment variables
 
