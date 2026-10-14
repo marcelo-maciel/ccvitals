@@ -342,14 +342,25 @@ function isCacheAlarmDue(promptCache, cacheAlarm, nowMs) {
   return nowMs >= expMs - leadMs && nowMs < expMs;
 }
 
+// Session's alarm locks as { file, expiresAt } (expiresAt parsed from the name).
+function _cacheAlarmLocks(cacheDir, prefix) {
+  if (!fs.existsSync(cacheDir)) return [];
+  return fs.readdirSync(cacheDir)
+    .filter(f => f.startsWith(prefix) && f.endsWith('.json'))
+    .map(f => ({ file: f, expiresAt: Number(f.slice(prefix.length, -'.json'.length)) }));
+}
+
 // Exclusive create ('wx') is the cross-process lock: concurrent renders of one
-// session (refresh tick + event) race on the same file and only one wins.
+// session (refresh tick + event) race on the same file and only one wins. A render
+// holding an older expires_at than an existing lock is stale and must not fire, and
+// cleanup removes only older windows so a stale render can't free a newer lock.
 function claimCacheAlarm(sessionId, expiresAt, claudeDir) {
   if (typeof sessionId !== 'string' || !SESSION_ID_RE.test(sessionId)) return false;
   const cacheDir = path.join(claudeDir, 'cache');
   const prefix = `cache-alarm-${sessionId}-`;
   const file = `${prefix}${expiresAt}.json`;
   try {
+    if (_cacheAlarmLocks(cacheDir, prefix).some(l => l.expiresAt > expiresAt)) return false;
     fs.mkdirSync(cacheDir, { recursive: true });
     fs.closeSync(fs.openSync(path.join(cacheDir, file), 'wx'));
   } catch (e) {
@@ -357,8 +368,8 @@ function claimCacheAlarm(sessionId, expiresAt, claudeDir) {
     return false;
   }
   try {
-    for (const f of fs.readdirSync(cacheDir)) {
-      if (f.startsWith(prefix) && f !== file) fs.unlinkSync(path.join(cacheDir, f));
+    for (const l of _cacheAlarmLocks(cacheDir, prefix)) {
+      if (l.expiresAt < expiresAt) fs.unlinkSync(path.join(cacheDir, l.file));
     }
   } catch (e) { logError('cache-alarm-cleanup', e); }
   return true;
@@ -366,14 +377,21 @@ function claimCacheAlarm(sessionId, expiresAt, claudeDir) {
 
 // Detached so the statusline doesn't wait out the clip. Windows only: the
 // statusline has no portable audio path, and other platforms simply stay silent.
+// The path travels in an env var, so no PowerShell quoting can break out of it.
 function playSound(file) {
-  if (process.platform !== 'win32' || !fs.existsSync(file)) return false;
-  const quoted = file.replace(/'/g, "''");
+  if (process.platform !== 'win32') return false;
+  if (!fs.existsSync(file)) {
+    logError('cache-alarm-sound', new Error(`sound file not found: ${file}`));
+    return false;
+  }
   try {
     require('child_process').spawn('powershell.exe', [
       '-NoProfile', '-NonInteractive', '-Command',
-      `(New-Object Media.SoundPlayer '${quoted}').PlaySync()`,
-    ], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      '(New-Object Media.SoundPlayer $env:CCVITALS_ALARM_SOUND).PlaySync()',
+    ], {
+      detached: true, stdio: 'ignore', windowsHide: true,
+      env: { ...process.env, CCVITALS_ALARM_SOUND: file },
+    }).unref();
     return true;
   } catch (e) {
     logError('cache-alarm-sound', e);

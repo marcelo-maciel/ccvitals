@@ -3,7 +3,7 @@
 // Covers: isCacheAlarmDue (window bounds, TTL guard, malformed payload/config),
 // claimCacheAlarm (once per window, cross-process race, cleanup, path safety)
 // and playSound's no-op paths. The sound itself is exercised live, not in CI.
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
@@ -16,7 +16,13 @@ const EXP = 1792000000; // epoch seconds
 const EXP_MS = EXP * 1000;
 const cfg = { leadMinutes: 20, sound: 'C:/Windows/Media/Alarm01.wav' };
 const pc = (over) => ({ warm: true, caching_observed: true, ttl: '1h', expires_at: EXP, ...over });
-const tmpClaudeDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'ccvitals-alarm-'));
+const tmpDirs = [];
+const tmpClaudeDir = () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ccvitals-alarm-'));
+  tmpDirs.push(d);
+  return d;
+};
+after(() => { for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true }); });
 const SID = 'e314deb9-f031-4436-a3de-a9b34ec14234';
 
 // ── janela: [expires_at - lead, expires_at)
@@ -101,6 +107,14 @@ test('janela nova vence e apaga a anterior da mesma sessão, sem tocar outra ses
   assert.strictEqual(claimCacheAlarm(SID, EXP + 3600, dir), true);
   const files = fs.readdirSync(path.join(dir, 'cache')).sort();
   assert.deepStrictEqual(files, [`cache-alarm-${other}-${EXP}.json`, `cache-alarm-${SID}-${EXP + 3600}.json`].sort());
+});
+
+test('render atrasado com janela antiga não toca nem apaga a trava nova', () => {
+  const dir = tmpClaudeDir();
+  assert.strictEqual(claimCacheAlarm(SID, EXP + 3600, dir), true);
+  assert.strictEqual(claimCacheAlarm(SID, EXP, dir), false);
+  assert.deepStrictEqual(fs.readdirSync(path.join(dir, 'cache')), [`cache-alarm-${SID}-${EXP + 3600}.json`]);
+  assert.strictEqual(claimCacheAlarm(SID, EXP + 3600, dir), false);
 });
 
 test('pasta cache ausente é criada', () => {
