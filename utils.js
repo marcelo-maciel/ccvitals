@@ -150,7 +150,7 @@ function sweepOrphans(claudeDir, aggWindowDays = 30) {
     if (aggWindowDays > 0) {
       const cacheDir = path.join(claudeDir, 'cache');
       const cutoff = Date.now() - aggWindowDays * 86400000;
-      const prefixes = ['statusline-state-', 'statusline-pid-', 'active-time-', 'compact-'];
+      const prefixes = ['statusline-state-', 'statusline-pid-', 'active-time-', 'compact-', 'cache-alarm-'];
       for (const f of fs.readdirSync(cacheDir)) {
         if (!f.endsWith('.json')) continue;
         if (!prefixes.some(p => f.startsWith(p))) continue;

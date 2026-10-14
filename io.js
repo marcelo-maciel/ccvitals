@@ -316,8 +316,94 @@ function lookupTask(sessionId, claudeDir) {
   return '';
 }
 
+// ─── Prompt-cache expiry alarm ────────────────────────────
+// Opt-in via config.json `cacheAlarm: { leadMinutes, sound }`. Fires once per cache
+// window, `leadMinutes` before CC's prompt_cache.expires_at. Needs statusLine
+// `refreshInterval` in settings.json: without it an idle session never re-renders.
+const CACHE_TTL_MS = { '5m': 5 * 60000, '1h': 60 * 60000 };
+const SESSION_ID_RE = /^[A-Za-z0-9-]+$/;
+
+function readCacheAlarmConfig() {
+  return _readLocalCfg().cacheAlarm;
+}
+
+function isCacheAlarmDue(promptCache, cacheAlarm, nowMs) {
+  if (!promptCache || promptCache.warm !== true) return false;
+  if (!Number.isFinite(promptCache.expires_at)) return false;
+  const ttlMs = CACHE_TTL_MS[promptCache.ttl];
+  if (!ttlMs) return false;
+  if (!cacheAlarm || typeof cacheAlarm.sound !== 'string') return false;
+  const lead = cacheAlarm.leadMinutes;
+  if (!Number.isFinite(lead) || lead <= 0) return false;
+  const leadMs = lead * 60000;
+  // A lead longer than the TTL window would fire right after every request.
+  if (leadMs >= ttlMs) return false;
+  const expMs = promptCache.expires_at * 1000;
+  return nowMs >= expMs - leadMs && nowMs < expMs;
+}
+
+// Session's alarm locks as { file, expiresAt } (expiresAt parsed from the name).
+function _cacheAlarmLocks(cacheDir, prefix) {
+  if (!fs.existsSync(cacheDir)) return [];
+  return fs.readdirSync(cacheDir)
+    .filter(f => f.startsWith(prefix) && f.endsWith('.json'))
+    .map(f => ({ file: f, expiresAt: Number(f.slice(prefix.length, -'.json'.length)) }));
+}
+
+// Exclusive create ('wx') is the cross-process lock: concurrent renders of one
+// session (refresh tick + event) race on the same file and only one wins. A render
+// holding an older expires_at than an existing lock is stale and must not fire, and
+// cleanup removes only older windows so a stale render can't free a newer lock.
+function claimCacheAlarm(sessionId, expiresAt, claudeDir) {
+  if (typeof sessionId !== 'string' || !SESSION_ID_RE.test(sessionId)) return false;
+  const cacheDir = path.join(claudeDir, 'cache');
+  const prefix = `cache-alarm-${sessionId}-`;
+  const file = `${prefix}${expiresAt}.json`;
+  try {
+    if (_cacheAlarmLocks(cacheDir, prefix).some(l => l.expiresAt > expiresAt)) return false;
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.closeSync(fs.openSync(path.join(cacheDir, file), 'wx'));
+  } catch (e) {
+    if (e.code !== 'EEXIST') logError('cache-alarm-claim', e);
+    return false;
+  }
+  try {
+    for (const l of _cacheAlarmLocks(cacheDir, prefix)) {
+      if (l.expiresAt < expiresAt) fs.unlinkSync(path.join(cacheDir, l.file));
+    }
+  } catch (e) { logError('cache-alarm-cleanup', e); }
+  return true;
+}
+
+// Synchronous on purpose: a detached player dies with the statusline process (measured:
+// the child never ran its first statement once its node parent exited). The alarm fires
+// on an idle session, so no event cancels this render while the clip plays; the cost is
+// a statusline update held for the clip's length, once per cache window.
+// Windows only: the statusline has no portable audio path, other platforms stay silent.
+// The path travels in an env var, so no PowerShell quoting can break out of it.
+function playSound(file) {
+  if (process.platform !== 'win32') return false;
+  if (!fs.existsSync(file)) {
+    logError('cache-alarm-sound', new Error(`sound file not found: ${file}`));
+    return false;
+  }
+  const r = require('child_process').spawnSync('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-Command',
+    '(New-Object Media.SoundPlayer $env:CCVITALS_ALARM_SOUND).PlaySync()',
+  ], {
+    stdio: 'ignore', windowsHide: true, timeout: 15000,
+    env: { ...process.env, CCVITALS_ALARM_SOUND: file },
+  });
+  if (r.error || r.status !== 0) {
+    logError('cache-alarm-sound', r.error || new Error(`player exited ${r.status}`));
+    return false;
+  }
+  return true;
+}
+
 module.exports = {
   readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot,
   readActiveTime, readCompactCount,
   writeBridgeFile, lookupTask,
+  readCacheAlarmConfig, isCacheAlarmDue, claimCacheAlarm, playSound,
 };
