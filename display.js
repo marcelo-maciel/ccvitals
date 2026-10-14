@@ -5,11 +5,7 @@ const {
   ESTIMATED_STARTING_TOKENS, AGENT_WARN_SECS, AGENT_CRIT_SECS,
   MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
 } = require('./utils');
-
-// Prompt cache TTL: 5min since last API response.
-const CACHE_TTL_MS = 5 * 60 * 1000;
 const { detectContextSize, formatContextLabel } = require('./models');
-const { VERSION } = require('./version');
 
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -23,11 +19,10 @@ function _fileUrl(absPath) {
   try { return pathToFileURL(absPath).href; } catch { return null; }
 }
 
-// Local config — `minPad` (spaces before the version chip) and `clickablePath`
-// (wrap the cwd in an OSC 8 hyperlink so terminals that support it open the
-// folder on Ctrl/Cmd+click). Defaults match prior behavior plus clickable on.
+// Local config — `clickablePath` (wrap the cwd in an OSC 8 hyperlink so terminals
+// that support it open the folder on Ctrl/Cmd+click).
 const _CONFIG_PATH = path.join(__dirname, 'config.json');
-const _CONFIG_DEFAULTS = { minPad: 6, clickablePath: true };
+const _CONFIG_DEFAULTS = { clickablePath: true };
 let _configCache = null;
 let _configMtime = 0;
 function _readConfig() {
@@ -36,7 +31,6 @@ function _readConfig() {
     if (_configCache && st.mtimeMs === _configMtime) return _configCache;
     const raw = JSON.parse(fs.readFileSync(_CONFIG_PATH, 'utf8'));
     const out = { ..._CONFIG_DEFAULTS };
-    if (Number.isFinite(raw.minPad) && raw.minPad >= 0) out.minPad = raw.minPad;
     if (typeof raw.clickablePath === 'boolean') out.clickablePath = raw.clickablePath;
     _configCache = out;
     _configMtime = st.mtimeMs;
@@ -245,13 +239,6 @@ function buildEffortStr(effort) {
   return ` ${color}${bold}[${cfg.label}]${C.reset}`;
 }
 
-// Version chip rendered a fixed `minPad` spaces after the content — no terminal
-// width detection (CC spawns the statusline without a real console, so detection
-// was unreliable and required per-host config + a refresh hook; dropped).
-function _appendVersion(text, vText) {
-  return text + ' '.repeat(_readConfig().minPad) + `${C.gray}${vText}${C.reset}`;
-}
-
 function buildLine1(p) {
   let s = `${p.updateStr}${p.errStr}${C.accent}${p.model}${C.reset}${p.effortStr}${p.fastStr}${p.ccVerStr || ''}${p.accountStr || ''}`;
   // Directory chip. When clickablePath is on, render the cwd as a plain file://
@@ -265,32 +252,27 @@ function buildLine1(p) {
   s += buildAddedDirsStr(p.addedDirs);
   if (p.branch) s += `${SEP}\ud83d\udd00${p.branch} ${p.gitStatus}`;
   s += p.taskStr;
-  return _appendVersion(s, `v${VERSION}`);
+  return s;
 }
 
-function buildCacheStr(lastUsage, lastApiTimestamp) {
-  if (!lastUsage) return '';
-  const read = lastUsage.cache_read_input_tokens || 0;
-  const create = lastUsage.cache_creation_input_tokens || 0;
-  const fresh = lastUsage.input_tokens || 0;
-  const total = read + create + fresh;
-  if (total <= 0) return '';
-  const hitPct = Math.floor(read * 100 / total);
-  let ttlStr = '';
-  // Absolute expiry timestamp instead of countdown — CC re-renders the statusline only
-  // on events, so a relative countdown freezes between renders. An absolute time stays correct.
-  if (lastApiTimestamp) {
-    const remaining = CACHE_TTL_MS - (Date.now() - new Date(lastApiTimestamp).getTime());
-    if (remaining > 0) {
-      const exp = new Date(new Date(lastApiTimestamp).getTime() + CACHE_TTL_MS);
-      const hh = String(exp.getHours()).padStart(2, '0');
-      const mm = String(exp.getMinutes()).padStart(2, '0');
-      const ss = String(exp.getSeconds()).padStart(2, '0');
-      const tc = remaining < 30_000 ? C.danger : remaining < 120_000 ? C.warn : C.soft;
-      ttlStr = ` ${tc}(exp ${hh}:${mm}:${ss})${C.reset}`;
-    }
-  }
-  return ` ${C.gray}| cache:${hitPct}%${C.reset}${ttlStr}`;
+// Expiry and TTL come from CC's stdin `prompt_cache` (CC 2.1.251+): the TTL depends on
+// billing (1h on a subscription, 5m on usage credits), so it can't be derived locally.
+function buildCacheStr(promptCache) {
+  if (!promptCache || promptCache.warm !== true) return '';
+  const expiresAt = promptCache.expires_at;
+  if (!Number.isFinite(expiresAt)) return '';
+  const expMs = expiresAt * 1000;
+  const remaining = expMs - Date.now();
+  if (remaining <= 0) return '';
+  // Absolute expiry timestamp instead of countdown — CC re-renders on events and when a
+  // warm cache reaches expires_at, so a relative countdown would freeze between renders.
+  const exp = new Date(expMs);
+  const hh = String(exp.getHours()).padStart(2, '0');
+  const mm = String(exp.getMinutes()).padStart(2, '0');
+  const ss = String(exp.getSeconds()).padStart(2, '0');
+  const ttl = promptCache.ttl === '5m' || promptCache.ttl === '1h' ? ` ${promptCache.ttl}` : '';
+  const tc = remaining < 30_000 ? C.danger : remaining < 120_000 ? C.warn : C.soft;
+  return ` ${C.gray}| cache ${tc}exp ${hh}:${mm}:${ss}${ttl}${C.reset}`;
 }
 
 function buildTodoStr(lastTodos) {
@@ -310,7 +292,7 @@ function buildLine2(p) {
   // Custo (~$sessão/~$30d) e duração da sessão vêm logo após o rate-limit (5h/7d),
   // fechando a "linha de consumo". costStr já inclui o separador ` | `.
   const durStr = p.sessionDur ? ` ${C.gray}| ${p.sessionDur}${C.reset}` : '';
-  return `${p.ctx}${p.cacheStr}${p.rlStr}${p.costStr}${durStr}${p.compactStr}${p.toolStr}${p.turnStr}${p.toolUsedStr}${p.todoStr || ''}`;
+  return `${p.ctx}${p.cacheStr}${p.rlStr}${p.costStr}${durStr}${p.compactStr}${p.turnStr}${p.todoStr || ''}`;
 }
 
 function computeSessionDur(firstTimestamp, transcriptPath, activeMs) {

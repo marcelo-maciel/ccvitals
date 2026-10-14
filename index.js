@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// ccvitals — operational HUD statusline for Claude Code (see version.js)
-// Line 1: [alerts] Model [effort][fast] | Dir | Branch (uncommitted, sync) | Task · vX.Y.Z
-// Line 2: Context bar | Cache (+TTL) | Rate limits | Cost | Session | Compact | Tools | Turns | Todo progress
+// ccvitals — operational HUD statusline for Claude Code
+// Line 1: [alerts] Model [effort][fast] | Dir | Branch (uncommitted, sync) | Task
+// Line 2: Context bar | Cache expiry (+TTL) | Rate limits | Cost | Session | Compact | Turns | Todo progress
 // Env: STATUSLINE_DISABLE=1 skip; STATUSLINE_STDIN_TIMEOUT=ms; DEBUG_STATUSLINE=1 log errors
 'use strict';
 const path = require('path');
@@ -110,21 +110,19 @@ async function main(data) {
     ccVerStr = ` ${color}(${ccVer})${C.reset}`;
   }
 
-  const toolStr = t.toolCallCount > 0 ? ` ${C.gray}| ${t.toolCallCount} tools${C.reset}` : '';
   const turnStr = t.turnCount > 0 ? ` ${C.gray}| ${t.turnCount} turns${C.reset}` : '';
   // Prefer MAX(JSONL-derived, PreCompact-hook count) — protects the counter
   // against schema drift on either side; whichever observes more wins.
   const compactCount = Math.max(t.compactCount, readCompactCount(transcriptPath, sessionId, claudeDir));
   const compactStr = compactCount > 0 ? ` ${C.gray}| ${C.orange}${compactCount}x compact${C.reset}` : '';
-  const toolUsedStr = t.lastToolUsed ? ` ${C.gray}| ${C.soft}${t.lastToolUsed}${C.reset}` : '';
-  const cacheStr = buildCacheStr(t.lastUsage, t.lastApiTimestamp);
+  const cacheStr = buildCacheStr(data.prompt_cache);
   const todoStr = buildTodoStr(t.lastTodos);
   const errs = getErrors();
   const errStr = errs.length
     ? ` ${C.red}!${errs.length > 2 ? errs.length + ':' : ''}${errs.slice(-2).join(',')}${C.reset}` : '';
 
   process.stdout.write(buildLine1({ updateStr, errStr, model, effortStr, ccVerStr, fastStr, accountStr, dir, cwd, addedDirs, branch, gitStatus, taskStr }) + '\n');
-  process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, toolStr, turnStr, toolUsedStr, todoStr }) + '\n');
+  process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, turnStr, todoStr }) + '\n');
 
   const agentLines = buildAgentLines(t.agentMap, effort, model);
   if (agentLines) process.stdout.write(agentLines + '\n');
