@@ -14,7 +14,7 @@ First public release.
 - Subagent tracking with spinner, per-agent context bar, model · effort badge, zombie cleanup, slow/stuck warnings, worktree marker.
 - Rate limits with cross-session aggregation (MAX across parallel sessions of the same account and org; switching login never shows the previous account's quota) and burn-rate delta (`tokens%_used − time%_elapsed`).
 - Prompt-cache absolute expiry with TTL label (`exp HH:MM:SS 1h`), read from Claude Code's `prompt_cache` stdin field (CC 2.1.251+).
-- Opt-in prompt-cache alarm (`cacheAlarm` in `config.json`, Windows only): one sound per cache window, `leadMinutes` before expiry, deduplicated across concurrent renders by an exclusive-create lock file. **Before the first publish:** remove the author's `cacheAlarm` from the shipped `config.json`.
+- Opt-in prompt-cache alarm (`cacheAlarm` in `config.json`, Windows only): one sound per cache window, `leadMinutes` before expiry, deduplicated across concurrent renders by an exclusive-create lock file.
 - Compact counter resilient to Claude Code schema drift (JSONL flags OR PreCompact hook, whichever observes more).
 - Rolling 30-day cost tracking with thresholds, race-safe across sessions.
 - Account/plan badge with subscription type.
