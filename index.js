@@ -110,7 +110,6 @@ async function main(data) {
     ccVerStr = ` ${color}(${ccVer})${C.reset}`;
   }
 
-  const toolStr = t.toolCallCount > 0 ? ` ${C.gray}| ${t.toolCallCount} tools${C.reset}` : '';
   const turnStr = t.turnCount > 0 ? ` ${C.gray}| ${t.turnCount} turns${C.reset}` : '';
   // Prefer MAX(JSONL-derived, PreCompact-hook count) — protects the counter
   // against schema drift on either side; whichever observes more wins.
@@ -124,7 +123,7 @@ async function main(data) {
     ? ` ${C.red}!${errs.length > 2 ? errs.length + ':' : ''}${errs.slice(-2).join(',')}${C.reset}` : '';
 
   process.stdout.write(buildLine1({ updateStr, errStr, model, effortStr, ccVerStr, fastStr, accountStr, dir, cwd, addedDirs, branch, gitStatus, taskStr }) + '\n');
-  process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, toolStr, turnStr, toolUsedStr, todoStr }) + '\n');
+  process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, turnStr, toolUsedStr, todoStr }) + '\n');
 
   const agentLines = buildAgentLines(t.agentMap, effort, model);
   if (agentLines) process.stdout.write(agentLines + '\n');

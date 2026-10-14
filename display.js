@@ -302,7 +302,7 @@ function buildLine2(p) {
   // Custo (~$sessão/~$30d) e duração da sessão vêm logo após o rate-limit (5h/7d),
   // fechando a "linha de consumo". costStr já inclui o separador ` | `.
   const durStr = p.sessionDur ? ` ${C.gray}| ${p.sessionDur}${C.reset}` : '';
-  return `${p.ctx}${p.cacheStr}${p.rlStr}${p.costStr}${durStr}${p.compactStr}${p.toolStr}${p.turnStr}${p.toolUsedStr}${p.todoStr || ''}`;
+  return `${p.ctx}${p.cacheStr}${p.rlStr}${p.costStr}${durStr}${p.compactStr}${p.turnStr}${p.toolUsedStr}${p.todoStr || ''}`;
 }
 
 function computeSessionDur(firstTimestamp, transcriptPath, activeMs) {
