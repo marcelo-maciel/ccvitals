@@ -316,8 +316,74 @@ function lookupTask(sessionId, claudeDir) {
   return '';
 }
 
+// ─── Prompt-cache expiry alarm ────────────────────────────
+// Opt-in via config.json `cacheAlarm: { leadMinutes, sound }`. Fires once per cache
+// window, `leadMinutes` before CC's prompt_cache.expires_at. Needs statusLine
+// `refreshInterval` in settings.json: without it an idle session never re-renders.
+const CACHE_TTL_MS = { '5m': 5 * 60000, '1h': 60 * 60000 };
+const SESSION_ID_RE = /^[A-Za-z0-9-]+$/;
+
+function readCacheAlarmConfig() {
+  return _readLocalCfg().cacheAlarm;
+}
+
+function isCacheAlarmDue(promptCache, cacheAlarm, nowMs) {
+  if (!promptCache || promptCache.warm !== true) return false;
+  if (!Number.isFinite(promptCache.expires_at)) return false;
+  const ttlMs = CACHE_TTL_MS[promptCache.ttl];
+  if (!ttlMs) return false;
+  if (!cacheAlarm || typeof cacheAlarm.sound !== 'string') return false;
+  const lead = cacheAlarm.leadMinutes;
+  if (!Number.isFinite(lead) || lead <= 0) return false;
+  const leadMs = lead * 60000;
+  // A lead longer than the TTL window would fire right after every request.
+  if (leadMs >= ttlMs) return false;
+  const expMs = promptCache.expires_at * 1000;
+  return nowMs >= expMs - leadMs && nowMs < expMs;
+}
+
+// Exclusive create ('wx') is the cross-process lock: concurrent renders of one
+// session (refresh tick + event) race on the same file and only one wins.
+function claimCacheAlarm(sessionId, expiresAt, claudeDir) {
+  if (typeof sessionId !== 'string' || !SESSION_ID_RE.test(sessionId)) return false;
+  const cacheDir = path.join(claudeDir, 'cache');
+  const prefix = `cache-alarm-${sessionId}-`;
+  const file = `${prefix}${expiresAt}.json`;
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.closeSync(fs.openSync(path.join(cacheDir, file), 'wx'));
+  } catch (e) {
+    if (e.code !== 'EEXIST') logError('cache-alarm-claim', e);
+    return false;
+  }
+  try {
+    for (const f of fs.readdirSync(cacheDir)) {
+      if (f.startsWith(prefix) && f !== file) fs.unlinkSync(path.join(cacheDir, f));
+    }
+  } catch (e) { logError('cache-alarm-cleanup', e); }
+  return true;
+}
+
+// Detached so the statusline doesn't wait out the clip. Windows only: the
+// statusline has no portable audio path, and other platforms simply stay silent.
+function playSound(file) {
+  if (process.platform !== 'win32' || !fs.existsSync(file)) return false;
+  const quoted = file.replace(/'/g, "''");
+  try {
+    require('child_process').spawn('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-Command',
+      `(New-Object Media.SoundPlayer '${quoted}').PlaySync()`,
+    ], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    return true;
+  } catch (e) {
+    logError('cache-alarm-sound', e);
+    return false;
+  }
+}
+
 module.exports = {
   readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot,
   readActiveTime, readCompactCount,
   writeBridgeFile, lookupTask,
+  readCacheAlarmConfig, isCacheAlarmDue, claimCacheAlarm, playSound,
 };

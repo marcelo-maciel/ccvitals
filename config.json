@@ -1,3 +1,7 @@
 {
-  "aggWindowDays": 30
+  "aggWindowDays": 30,
+  "cacheAlarm": {
+    "leadMinutes": 20,
+    "sound": "C:/Windows/Media/Alarm01.wav"
+  }
 }

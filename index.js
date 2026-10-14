@@ -14,7 +14,7 @@ const {
   buildAgentLines, buildEffortStr, buildLine1, buildLine2, computeSessionDur,
   buildCacheStr, buildTodoStr,
 } = require('./display');
-const { readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot, readActiveTime, readCompactCount, writeBridgeFile, lookupTask } = require('./io');
+const { readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot, readActiveTime, readCompactCount, writeBridgeFile, lookupTask, readCacheAlarmConfig, isCacheAlarmDue, claimCacheAlarm, playSound } = require('./io');
 const { checkClaudeUpdate, formatUpdateStr, isNewer } = require('./update');
 const { readAccount, buildAccountStr } = require('./account');
 
@@ -123,6 +123,13 @@ async function main(data) {
 
   process.stdout.write(buildLine1({ updateStr, errStr, model, effortStr, ccVerStr, fastStr, accountStr, dir, cwd, addedDirs, branch, gitStatus, taskStr }) + '\n');
   process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, turnStr, todoStr }) + '\n');
+
+  // Claim before playing: a render cancelled in between loses this window's alarm, never doubles it.
+  const cacheAlarm = readCacheAlarmConfig();
+  if (isCacheAlarmDue(data.prompt_cache, cacheAlarm, Date.now())
+    && claimCacheAlarm(sessionId, data.prompt_cache.expires_at, claudeDir)) {
+    playSound(cacheAlarm.sound);
+  }
 
   const agentLines = buildAgentLines(t.agentMap, effort, model);
   if (agentLines) process.stdout.write(agentLines + '\n');
