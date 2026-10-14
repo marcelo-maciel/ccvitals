@@ -27,11 +27,7 @@ Plus optional extra lines: live subagents (spinner, model · effort, elapsed, sl
 
 ## Install
 
-```bash
-npm install -g ccvitals
-```
-
-Or clone and run from source:
+Clone and run from source (not published to npm):
 
 ```bash
 git clone https://github.com/marcelo-maciel/ccvitals.git ~/.claude/ccvitals
