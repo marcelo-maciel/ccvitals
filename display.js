@@ -5,9 +5,6 @@ const {
   ESTIMATED_STARTING_TOKENS, AGENT_WARN_SECS, AGENT_CRIT_SECS,
   MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
 } = require('./utils');
-
-// Prompt cache TTL: 5min since last API response.
-const CACHE_TTL_MS = 5 * 60 * 1000;
 const { detectContextSize, formatContextLabel } = require('./models');
 const { VERSION } = require('./version');
 
@@ -268,29 +265,24 @@ function buildLine1(p) {
   return _appendVersion(s, `v${VERSION}`);
 }
 
-function buildCacheStr(lastUsage, lastApiTimestamp) {
-  if (!lastUsage) return '';
-  const read = lastUsage.cache_read_input_tokens || 0;
-  const create = lastUsage.cache_creation_input_tokens || 0;
-  const fresh = lastUsage.input_tokens || 0;
-  const total = read + create + fresh;
-  if (total <= 0) return '';
-  const hitPct = Math.floor(read * 100 / total);
-  let ttlStr = '';
-  // Absolute expiry timestamp instead of countdown — CC re-renders the statusline only
-  // on events, so a relative countdown freezes between renders. An absolute time stays correct.
-  if (lastApiTimestamp) {
-    const remaining = CACHE_TTL_MS - (Date.now() - new Date(lastApiTimestamp).getTime());
-    if (remaining > 0) {
-      const exp = new Date(new Date(lastApiTimestamp).getTime() + CACHE_TTL_MS);
-      const hh = String(exp.getHours()).padStart(2, '0');
-      const mm = String(exp.getMinutes()).padStart(2, '0');
-      const ss = String(exp.getSeconds()).padStart(2, '0');
-      const tc = remaining < 30_000 ? C.danger : remaining < 120_000 ? C.warn : C.soft;
-      ttlStr = ` ${tc}(exp ${hh}:${mm}:${ss})${C.reset}`;
-    }
-  }
-  return ` ${C.gray}| cache:${hitPct}%${C.reset}${ttlStr}`;
+// Expiry and TTL come from CC's stdin `prompt_cache` (CC 2.1.251+): the TTL depends on
+// billing (1h on a subscription, 5m on usage credits), so it can't be derived locally.
+function buildCacheStr(promptCache) {
+  if (!promptCache || promptCache.warm !== true) return '';
+  const expiresAt = promptCache.expires_at;
+  if (!Number.isFinite(expiresAt)) return '';
+  const expMs = expiresAt * 1000;
+  const remaining = expMs - Date.now();
+  if (remaining <= 0) return '';
+  // Absolute expiry timestamp instead of countdown — CC re-renders on events and when a
+  // warm cache reaches expires_at, so a relative countdown would freeze between renders.
+  const exp = new Date(expMs);
+  const hh = String(exp.getHours()).padStart(2, '0');
+  const mm = String(exp.getMinutes()).padStart(2, '0');
+  const ss = String(exp.getSeconds()).padStart(2, '0');
+  const ttl = promptCache.ttl === '5m' || promptCache.ttl === '1h' ? ` ${promptCache.ttl}` : '';
+  const tc = remaining < 30_000 ? C.danger : remaining < 120_000 ? C.warn : C.soft;
+  return ` ${C.gray}| cache ${tc}exp ${hh}:${mm}:${ss}${ttl}${C.reset}`;
 }
 
 function buildTodoStr(lastTodos) {

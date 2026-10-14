@@ -117,7 +117,7 @@ async function main(data) {
   const compactCount = Math.max(t.compactCount, readCompactCount(transcriptPath, sessionId, claudeDir));
   const compactStr = compactCount > 0 ? ` ${C.gray}| ${C.orange}${compactCount}x compact${C.reset}` : '';
   const toolUsedStr = t.lastToolUsed ? ` ${C.gray}| ${C.soft}${t.lastToolUsed}${C.reset}` : '';
-  const cacheStr = buildCacheStr(t.lastUsage, t.lastApiTimestamp);
+  const cacheStr = buildCacheStr(data.prompt_cache);
   const todoStr = buildTodoStr(t.lastTodos);
   const errs = getErrors();
   const errStr = errs.length

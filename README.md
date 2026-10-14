@@ -10,7 +10,7 @@ A two-line statusline that surfaces the signals a heavy Claude Code user actuall
 
 **Line 1**: update alert · model · effort · plan badge · cost (session + 30d, `~` = custo nocional equivalente-API, não fatura) · session duration · cwd · added directories · branch (uncommitted, push/pull) · current task · version chip.
 
-**Line 2**: context bar · rate limits with burn-rate delta · prompt-cache hit rate + absolute expiry · compact count · tools · turns · todo progress.
+**Line 2**: context bar · rate limits with burn-rate delta · prompt-cache expiry with TTL · compact count · tools · turns · todo progress.
 
 Plus optional extra lines: live subagents (spinner, model · effort, elapsed, slow/stuck warnings) and the last user message echoed back (with secret redaction).
 
@@ -18,7 +18,7 @@ Plus optional extra lines: live subagents (spinner, model · effort, elapsed, sl
 
 - **Incremental transcript parsing** — caches per-session state (mtime/size + SHA1 head fingerprint); only the delta is parsed each render.
 - **Burn-rate delta on rate limits** — `tokens%_used − time%_elapsed`. Positive = burning faster than the window allows.
-- **Absolute prompt-cache expiry** — shows `exp HH:MM:SS`, not a stale countdown.
+- **Absolute prompt-cache expiry** — shows `exp HH:MM:SS 1h`, not a stale countdown. Expiry and TTL come from Claude Code's `prompt_cache` stdin field (2.1.251+), so the 1h subscription TTL and the 5m drop on usage credits are both reflected; older versions show no cache segment.
 - **Subagent tracking** — spinner, model badge, effort, elapsed, zombie cleanup, slow/stuck warnings, worktree marker.
 - **Secret redaction** — postgres/mysql/mongo URLs, sk-/sk-ant-/ghp_/AKIA/SG./JWT tokens, Bearer/x-api-key headers, password assignments are scrubbed from the echoed last-user-message.
 - **Compact-boundary multi-flag** — resilient to Claude Code schema drift across versions.
