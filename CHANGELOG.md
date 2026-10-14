@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file. Format foll
 First public release.
 
 ### Highlights
-- Two-line dense layout with version chip.
+- Two-line dense layout.
 - Added-directory chip from `workspace.added_dirs`: count plus basenames of the directories brought in with `/add-dir` or `--add-dir`, capped at 3 names with the remainder aggregated, hidden when none were added.
 - Incremental transcript parsing with mtime/size/SHA1 head-fingerprint cache invalidation and a schema-versioned per-session state cache.
 - Effort level tracking: the `effort` stamped on each assistant transcript record (CC 2.1.223+, sidechains excluded), typed `/effort` args, picker confirmations, and inheritance across `/clear` (exact same-process predecessor via pid → sessionId history, mtime heuristic fallback; chained `/clear` supported). Before the first response the persisted default comes from `modelSettings[<model>].effortLevel` (CC 2.1.251+, matched on the canonical name with `[1m]`/date suffixes stripped), falling back to `effortLevel` — a fresh session no longer shows the global default when the model has its own saved level. Levels: auto/low/medium/high/xhigh/max/ultracode.

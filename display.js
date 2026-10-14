@@ -6,7 +6,6 @@ const {
   MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
 } = require('./utils');
 const { detectContextSize, formatContextLabel } = require('./models');
-const { VERSION } = require('./version');
 
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -20,11 +19,10 @@ function _fileUrl(absPath) {
   try { return pathToFileURL(absPath).href; } catch { return null; }
 }
 
-// Local config — `minPad` (spaces before the version chip) and `clickablePath`
-// (wrap the cwd in an OSC 8 hyperlink so terminals that support it open the
-// folder on Ctrl/Cmd+click). Defaults match prior behavior plus clickable on.
+// Local config — `clickablePath` (wrap the cwd in an OSC 8 hyperlink so terminals
+// that support it open the folder on Ctrl/Cmd+click).
 const _CONFIG_PATH = path.join(__dirname, 'config.json');
-const _CONFIG_DEFAULTS = { minPad: 6, clickablePath: true };
+const _CONFIG_DEFAULTS = { clickablePath: true };
 let _configCache = null;
 let _configMtime = 0;
 function _readConfig() {
@@ -33,7 +31,6 @@ function _readConfig() {
     if (_configCache && st.mtimeMs === _configMtime) return _configCache;
     const raw = JSON.parse(fs.readFileSync(_CONFIG_PATH, 'utf8'));
     const out = { ..._CONFIG_DEFAULTS };
-    if (Number.isFinite(raw.minPad) && raw.minPad >= 0) out.minPad = raw.minPad;
     if (typeof raw.clickablePath === 'boolean') out.clickablePath = raw.clickablePath;
     _configCache = out;
     _configMtime = st.mtimeMs;
@@ -242,13 +239,6 @@ function buildEffortStr(effort) {
   return ` ${color}${bold}[${cfg.label}]${C.reset}`;
 }
 
-// Version chip rendered a fixed `minPad` spaces after the content — no terminal
-// width detection (CC spawns the statusline without a real console, so detection
-// was unreliable and required per-host config + a refresh hook; dropped).
-function _appendVersion(text, vText) {
-  return text + ' '.repeat(_readConfig().minPad) + `${C.gray}${vText}${C.reset}`;
-}
-
 function buildLine1(p) {
   let s = `${p.updateStr}${p.errStr}${C.accent}${p.model}${C.reset}${p.effortStr}${p.fastStr}${p.ccVerStr || ''}${p.accountStr || ''}`;
   // Directory chip. When clickablePath is on, render the cwd as a plain file://
@@ -262,7 +252,7 @@ function buildLine1(p) {
   s += buildAddedDirsStr(p.addedDirs);
   if (p.branch) s += `${SEP}\ud83d\udd00${p.branch} ${p.gitStatus}`;
   s += p.taskStr;
-  return _appendVersion(s, `v${VERSION}`);
+  return s;
 }
 
 // Expiry and TTL come from CC's stdin `prompt_cache` (CC 2.1.251+): the TTL depends on

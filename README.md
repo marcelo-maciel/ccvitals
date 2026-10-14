@@ -8,7 +8,7 @@
 
 A two-line statusline that surfaces the signals a heavy Claude Code user actually needs:
 
-**Line 1**: update alert · model · effort · plan badge · cost (session + 30d, `~` = custo nocional equivalente-API, não fatura) · session duration · cwd · added directories · branch (uncommitted, push/pull) · current task · version chip.
+**Line 1**: update alert · model · effort · plan badge · cost (session + 30d, `~` = custo nocional equivalente-API, não fatura) · session duration · cwd · added directories · branch (uncommitted, push/pull) · current task.
 
 **Line 2**: context bar · rate limits with burn-rate delta · prompt-cache expiry with TTL · compact count · turns · todo progress.
 

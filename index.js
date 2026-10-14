@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// ccvitals — operational HUD statusline for Claude Code (see version.js)
-// Line 1: [alerts] Model [effort][fast] | Dir | Branch (uncommitted, sync) | Task · vX.Y.Z
-// Line 2: Context bar | Cache (+TTL) | Rate limits | Cost | Session | Compact | Tools | Turns | Todo progress
+// ccvitals — operational HUD statusline for Claude Code
+// Line 1: [alerts] Model [effort][fast] | Dir | Branch (uncommitted, sync) | Task
+// Line 2: Context bar | Cache expiry (+TTL) | Rate limits | Cost | Session | Compact | Turns | Todo progress
 // Env: STATUSLINE_DISABLE=1 skip; STATUSLINE_STDIN_TIMEOUT=ms; DEBUG_STATUSLINE=1 log errors
 'use strict';
 const path = require('path');
