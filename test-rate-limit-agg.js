@@ -112,6 +112,28 @@ test('troca de conta: snapshot de outra conta (reset mais tarde, pct maior) não
   assert.strictEqual(out.seven_day.used_percentage, 11, '89/70 de outra conta ou org não entram no MAX');
 });
 
+test('mesma quotaKey, cotas distintas (CLAUDE_CODE_OAUTH_TOKEN vs /login): reset 7d separa', () => {
+  // quotaKey vem do ~/.claude.json, igual nas duas; a cota real difere e cada uma tem seu reset 7d.
+  const R_OTHER = R + 12 * 3600;
+  const dir = seed({
+    loginSess: snap(2 * 60 * S, 3, R_OTHER, 21, nowSec + 4 * 3600),
+  });
+  const out = trackRateLimitSnapshot(mine(0, R, 2, nowSec + 4 * 3600 + 1800), 'sess-env', ACC, dir);
+  assert.strictEqual(out.five_hour.used_percentage, 2, '21 da outra cota não entra');
+  assert.strictEqual(out.five_hour.resets_at, nowSec + 4 * 3600 + 1800);
+  assert.strictEqual(out.seven_day.used_percentage, 0);
+  assert.strictEqual(out.seven_day.resets_at, R, 'R_OTHER (mais tarde) da outra cota não vence');
+});
+
+test('mesma cota, outra sessão já na janela 5h nova: converge (reset 7d igual)', () => {
+  const dir = seed({
+    rolled: snap(5 * 60 * S, 4, R, 6, nowSec + 4 * 3600),
+  });
+  const out = trackRateLimitSnapshot(mine(4, R, 90, nowSec - 60), 'sess-idle', ACC, dir);
+  assert.strictEqual(out.five_hour.used_percentage, 6);
+  assert.strictEqual(out.five_hour.resets_at, nowSec + 4 * 3600);
+});
+
 test('snapshot legado sem account não vaza para conta logada', () => {
   const legacy = snap(10 * 60 * S, 95, R);
   delete legacy.account;
