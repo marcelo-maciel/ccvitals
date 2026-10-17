@@ -194,7 +194,7 @@ function trackRateLimitSnapshot(rateLimits, sessionId, quotaKey, claudeDir) {
     let cache = read();
     if (!cache.sessions) cache.sessions = {};
     const now = Date.now();
-    const ttl = 24 * 86400000; // drop snapshots older than 24h
+    const ttl = 24 * 3600000; // drop snapshots older than 24h
     const mine = {
       observed_at: now,
       account: quotaKey,

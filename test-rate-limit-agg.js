@@ -149,3 +149,10 @@ test('sem conta OAuth (quotaKey null): agrega entre sessões sem conta', () => {
   const out = trackRateLimitSnapshot(mine(12, R), 'sess-me', null, dir);
   assert.strictEqual(out.seven_day.used_percentage, 30, 'MAX entre legado e própria; 80 da conta ACC fora');
 });
+
+test('TTL 24h: snapshot de 25h é podado, de 23h fica', () => {
+  const dir = seed({ old25h: snap(25 * H, 50, R), old23h: snap(23 * H, 40, R) });
+  trackRateLimitSnapshot(mine(5, R), 'sess-me', ACC, dir);
+  const kept = JSON.parse(fs.readFileSync(path.join(dir, 'cache', 'rate-limit-snapshots.json'), 'utf8')).sessions;
+  assert.deepStrictEqual(Object.keys(kept).sort(), ['old23h', 'sess-me']);
+});
