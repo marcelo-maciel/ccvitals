@@ -90,6 +90,7 @@ Opt-in, Windows only. Plays a sound once per cache window, `leadMinutes` before 
 | `STATUSLINE_STDIN_TIMEOUT=ms` | Bail out if Claude Code doesn't pipe stdin within `ms` (default: 5000, range 500-30000). |
 | `DEBUG_STATUSLINE=1` | Persist per-context errors to `cache/statusline-errors.log`. |
 | `CLAUDE_CONFIG_DIR` | Override the `~/.claude` location (mirrors Claude Code's own var). |
+| `STATUSLINE_ACCOUNT=<name>:<plan>` | Account badge for sessions authenticated by `CLAUDE_CODE_OAUTH_TOKEN`. Claude Code strips that token from the statusline env, so without this the badge shows the `/login` account from `~/.claude.json`. Also keys the cross-session rate-limit aggregation. Set it in whatever launches `claude` with the token. |
 
 ## Requirements
 

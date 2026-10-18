@@ -41,7 +41,18 @@ function _mtimeKey(claudeJsonPath) {
   } catch { return ''; }
 }
 
+// Claude Code strips CLAUDE_CODE_OAUTH_TOKEN from the statusline env, so a session on that token
+// is invisible here and ~/.claude.json still names the /login account. Whoever launches the
+// session with the token sets STATUSLINE_ACCOUNT=<name>:<plan> to say which account it is.
+function _envAccount() {
+  const m = /^(.*\S):(\w+)$/.exec((process.env.STATUSLINE_ACCOUNT || '').trim());
+  if (!m) return null;
+  return { displayName: m[1], email: null, organizationRole: null, subscriptionType: m[2], quotaKey: `env:${m[1]}:${m[2]}` };
+}
+
 function readAccount() {
+  const fromEnv = _envAccount();
+  if (fromEnv) return fromEnv;
   const picked = _pickClaudeJson();
   const key = _mtimeKey(picked?.path);
   if (key && key === _cacheKey) return _cache;

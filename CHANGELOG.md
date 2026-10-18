@@ -17,7 +17,7 @@ First public release.
 - Opt-in prompt-cache alarm (`cacheAlarm` in `config.json`, Windows only): one sound per cache window, `leadMinutes` before expiry, deduplicated across concurrent renders by an exclusive-create lock file.
 - Compact counter resilient to Claude Code schema drift (JSONL flags OR PreCompact hook, whichever observes more).
 - Rolling 30-day cost tracking with thresholds, race-safe across sessions.
-- Account/plan badge with subscription type.
+- Account/plan badge with subscription type. `STATUSLINE_ACCOUNT=<name>:<plan>` overrides it for sessions on `CLAUDE_CODE_OAUTH_TOKEN`, which the `/login` files cannot see.
 - Secret redaction in last-user-message display (postgres/mysql/mongo URLs, tokens, JWTs, Bearer/x-api-key headers).
 - Todo progress display with active task label.
 - Active session time via hooks (UserPromptSubmit→Stop deltas) instead of wall clock. A prompt arriving mid-turn closes the open span instead of discarding it, and the first-run bootstrap sums the gaps between transcript events — each capped at 5 minutes, and the gap that ends at a human prompt excluded — so tool execution counts as work while an idle session does not. The earlier bootstrap read every tool result as a human prompt (measured on a real transcript: 123 of 123 `user` lines, against 5 actual prompts), which dropped all tool time and reported 28m for a session that had worked 53m.
