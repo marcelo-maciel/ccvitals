@@ -194,7 +194,7 @@ function trackRateLimitSnapshot(rateLimits, sessionId, quotaKey, claudeDir) {
     let cache = read();
     if (!cache.sessions) cache.sessions = {};
     const now = Date.now();
-    const ttl = 24 * 86400000; // drop snapshots older than 24h
+    const ttl = 24 * 3600000; // drop snapshots older than 24h
     const mine = {
       observed_at: now,
       account: quotaKey,
@@ -225,9 +225,15 @@ function trackRateLimitSnapshot(rateLimits, sessionId, quotaKey, claudeDir) {
     const RECENT_MS = 2 * 3600000; // ponytail: convergence window; admin reset auto-corrects in <=2h instead of the 24h TTL
     // Quota is per account+org: after a login switch the previous account's snapshots
     // (often a later resets_at and a higher pct) would otherwise win both picks below.
-    const peers = Object.values(cache.sessions).filter(s => (s.account ?? null) === (quotaKey ?? null));
+    // quotaKey alone can't tell CLAUDE_CODE_OAUTH_TOKEN sessions from /login ones (same
+    // ~/.claude.json, different quota), so a live 7d resets_at fingerprints the actual quota.
+    // ponytail: two accounts sharing a 7d reset (600s granularity) still merge; upgrade = token hash from CC.
+    const nowSec = Math.floor(now / 1000);
+    const myWeek = mine.seven_day?.resets_at;
+    const fingerprint = myWeek && myWeek >= nowSec ? myWeek : null;
+    const peers = Object.values(cache.sessions).filter(s => (s.account ?? null) === (quotaKey ?? null)
+      && (fingerprint == null || s.seven_day?.resets_at === fingerprint));
     const agg = (window) => {
-      const nowSec = Math.floor(now / 1000);
       let bestReset = 0;
       for (const s of peers) {
         const w = s[window];
