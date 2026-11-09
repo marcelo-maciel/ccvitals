@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ccvitals — operational HUD statusline for Claude Code
 // Line 1: [alerts] Model [effort][fast] | Dir | Branch (uncommitted, sync) | Task
-// Line 2: Context bar | Cache expiry (+TTL) | Rate limits | Cost | Session | Compact | Turns | Todo progress
+// Line 2: Context bar | Cache expiry | Rate limits | Compact | Todo progress
 // Env: STATUSLINE_DISABLE=1 skip; STATUSLINE_STDIN_TIMEOUT=ms; DEBUG_STATUSLINE=1 log errors
 'use strict';
 const path = require('path');
@@ -10,11 +10,11 @@ const { C, getErrors, safeSlice, logError, sweepOrphans } = require('./utils');
 const { collectGit } = require('./git');
 const { parseTranscript } = require('./transcript');
 const {
-  buildContextBar, buildCostStr, buildRateLimitsStr,
-  buildAgentLines, buildEffortStr, buildLine1, buildLine2, computeSessionDur,
+  buildContextBar, buildRateLimitsStr,
+  buildAgentLines, buildEffortStr, buildLine1, buildLine2,
   buildCacheStr, buildTodoStr, buildWakeupStr,
 } = require('./display');
-const { readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot, readActiveTime, readCompactCount, writeBridgeFile, lookupTask, readCacheAlarmConfig, isCacheAlarmDue, claimCacheAlarm, playSound } = require('./io');
+const { readSettings, resolveDefaultEffort, trackRateLimitSnapshot, readCompactCount, writeBridgeFile, lookupTask, readCacheAlarmConfig, isCacheAlarmDue, claimCacheAlarm, playSound } = require('./io');
 const { checkClaudeUpdate, formatUpdateStr, isNewer } = require('./update');
 const { readAccount, buildAccountStr } = require('./account');
 
@@ -73,8 +73,6 @@ async function main(data) {
   if (t.lastEffort) effort = t.lastEffort;
 
   sweepOrphans(claudeDir, settings.aggWindowDays);
-  const activeMs = readActiveTime(transcriptPath, sessionId, claudeDir);
-  const sessionDur = computeSessionDur(t.firstTimestamp, transcriptPath, activeMs);
   const { ctx, pct, pctEstimated, remainingPct } = buildContextBar(data, t.lastUsage, {
     lastCompactBoundaryTs: t.lastCompactBoundaryTs,
     lastApiTimestamp: t.lastApiTimestamp,
@@ -83,9 +81,6 @@ async function main(data) {
   });
   writeBridgeFile(sessionId, pct, pctEstimated, remainingPct);
 
-  const cost = data.cost?.total_cost_usd;
-  const cost30d = trackMonthlyCost(cost, sessionId, claudeDir, settings.aggWindowDays);
-  const costStr = buildCostStr(cost, cost30d, thresholds);
   const account = readAccount();
   const rlAgg = trackRateLimitSnapshot(data.rate_limits, sessionId, account?.quotaKey ?? null, claudeDir);
   const rlStr = buildRateLimitsStr(data.rate_limits, thresholds, t.lastApiTimestamp, rlAgg);
@@ -110,7 +105,6 @@ async function main(data) {
     ccVerStr = ` ${color}(${ccVer})${C.reset}`;
   }
 
-  const turnStr = t.turnCount > 0 ? ` ${C.gray}| ${t.turnCount} turns${C.reset}` : '';
   // Prefer MAX(JSONL-derived, PreCompact-hook count) — protects the counter
   // against schema drift on either side; whichever observes more wins.
   const compactCount = Math.max(t.compactCount, readCompactCount(transcriptPath, sessionId, claudeDir));
@@ -122,7 +116,7 @@ async function main(data) {
     ? ` ${C.red}!${errs.length > 2 ? errs.length + ':' : ''}${errs.slice(-2).join(',')}${C.reset}` : '';
 
   process.stdout.write(buildLine1({ updateStr, errStr, model, effortStr, ccVerStr, fastStr, accountStr, dir, cwd, addedDirs, branch, gitStatus, taskStr }) + '\n');
-  process.stdout.write(buildLine2({ ctx, rlStr, costStr, sessionDur, cacheStr, compactStr, turnStr, todoStr }) + '\n');
+  process.stdout.write(buildLine2({ ctx, rlStr, cacheStr, compactStr, todoStr }) + '\n');
 
   // Claim before playing: a render cancelled in between loses this window's alarm, never doubles it.
   const cacheAlarm = readCacheAlarmConfig();

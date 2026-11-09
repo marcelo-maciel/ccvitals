@@ -5,7 +5,7 @@ const {
   ESTIMATED_STARTING_TOKENS, AGENT_WARN_SECS, AGENT_CRIT_SECS,
   MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
 } = require('./utils');
-const { detectContextSize, formatContextLabel } = require('./models');
+const { detectContextSize } = require('./models');
 
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -63,7 +63,6 @@ function buildAddedDirsStr(addedDirs) {
 
 function buildContextBar(data, lastUsage, compactState) {
   const maxContext = detectContextSize(data.model?.id, data.context_window?.context_window_size);
-  const maxDisplay = formatContextLabel(maxContext);
   let pct = 0, pctPrefix = '', pctEstimated = false;
   const remainingPct = data.context_window?.remaining_percentage;
 
@@ -120,17 +119,7 @@ function buildContextBar(data, lastUsage, compactState) {
     else if (progress >= 3) bar += `${C.accent}\u2584${C.reset}`;
     else bar += `${C.barEmpty}\u2591${C.reset}`;
   }
-  return { ctx: `${bar} ${C.gray}${pctPrefix}${pctStr}% of ${maxDisplay} tokens`, pct, pctEstimated, remainingPct };
-}
-
-function buildCostStr(cost, cost30d, thresholds) {
-  if (cost == null) return '';
-  const cc = colorByThreshold(cost, thresholds.costSession);
-  const mc = colorByThreshold(cost30d, thresholds.costMonthly, [C.gray, C.warn, C.danger]);
-  // ~ marca custo nocional em AMBOS: sessão e 30d vêm do mesmo total_cost_usd
-  // (equivalente-API estimado pelo CC, não a fatura da assinatura).
-  const m = cost30d > 0 ? `${mc}/~$${cost30d.toFixed(2)}${C.reset}` : '';
-  return ` ${C.gray}| ${cc}~$${cost.toFixed(2)}${m}${C.reset}`;
+  return { ctx: `${bar} ${C.gray}${pctPrefix}${pctStr}%`, pct, pctEstimated, remainingPct };
 }
 
 function _renderRl(rl, label, windowMs, apiAge, now, thresholds, agg) {
@@ -270,9 +259,8 @@ function buildCacheStr(promptCache) {
   const hh = String(exp.getHours()).padStart(2, '0');
   const mm = String(exp.getMinutes()).padStart(2, '0');
   const ss = String(exp.getSeconds()).padStart(2, '0');
-  const ttl = promptCache.ttl === '5m' || promptCache.ttl === '1h' ? ` ${promptCache.ttl}` : '';
   const tc = remaining < 30_000 ? C.danger : remaining < 120_000 ? C.warn : C.soft;
-  return ` ${C.gray}| cache ${tc}exp ${hh}:${mm}:${ss}${ttl}${C.reset}`;
+  return ` ${C.gray}| cache ${tc}${hh}:${mm}:${ss}${C.reset}`;
 }
 
 // Pending session wakeup (ScheduleWakeup): it only fires while this Claude Code session stays open.
@@ -298,34 +286,11 @@ function buildTodoStr(lastTodos) {
 }
 
 function buildLine2(p) {
-  // Custo (~$sessão/~$30d) e duração da sessão vêm logo após o rate-limit (5h/7d),
-  // fechando a "linha de consumo". costStr já inclui o separador ` | `.
-  const durStr = p.sessionDur ? ` ${C.gray}| ${p.sessionDur}${C.reset}` : '';
-  return `${p.ctx}${p.cacheStr}${p.rlStr}${p.costStr}${durStr}${p.compactStr}${p.turnStr}${p.todoStr || ''}`;
-}
-
-function computeSessionDur(firstTimestamp, transcriptPath, activeMs) {
-  // Active time (sum of UserPromptSubmit→Stop deltas, hook-driven) is the
-  // honest "how long was the agent actually working" number — wins when
-  // present. Fallbacks below give wall-clock duration which inflates with idle.
-  if (Number.isFinite(activeMs) && activeMs > 0) {
-    return `${C.green}${formatDuration(Math.floor(activeMs / 1000))}${C.reset}`;
-  }
-  if (firstTimestamp) {
-    try {
-      return formatDuration(Math.floor((Date.now() - new Date(firstTimestamp).getTime()) / 1000));
-    } catch {}
-  } else if (transcriptPath) {
-    try {
-      const stat = fs.statSync(transcriptPath);
-      return formatDuration(Math.floor((Date.now() - (stat.birthtimeMs || stat.ctimeMs)) / 1000));
-    } catch {}
-  }
-  return '';
+  return `${p.ctx}${p.cacheStr}${p.rlStr}${p.compactStr}${p.todoStr || ''}`;
 }
 
 module.exports = {
-  buildContextBar, buildCostStr, buildRateLimitsStr,
-  buildAgentLines, buildEffortStr, buildLine1, buildLine2, computeSessionDur,
+  buildContextBar, buildRateLimitsStr,
+  buildAgentLines, buildEffortStr, buildLine1, buildLine2,
   buildCacheStr, buildTodoStr, buildAddedDirsStr, buildWakeupStr,
 };
