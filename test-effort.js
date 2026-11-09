@@ -87,7 +87,7 @@ test('clear-born-inherits', () => {
   assert.strictEqual(rB.lastEffort, 'max', 'clear-born-inherits');
   // state cache persisted for sB?
   const stB = JSON.parse(fs.readFileSync(path.join(claudeDir, 'cache', 'statusline-state-sB.json'), 'utf8'));
-  assert.strictEqual(String(stB.v), '2', 'cache-schema-v2');
+  assert.strictEqual(String(stB.v), '3', 'cache-schema-v3');
   assert.strictEqual(String(stB.state.clearBorn), 'true', 'cache-clearBorn-sticky');
   assert.strictEqual(stB.state.lastEffort, 'max', 'cache-effort-persisted');
 });

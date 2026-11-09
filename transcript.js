@@ -7,7 +7,16 @@ const { atomicWrite, logError, redact, AGENT_ZOMBIE_SECS, EFFORT_CONFIG } = requ
 // Bump when the persisted state shape or parsing rules change — old caches are
 // discarded and the transcript fully reparsed (incremental reads would otherwise
 // never re-scan bytes consumed under the old rules).
-const CACHE_SCHEMA = 2;
+const CACHE_SCHEMA = 3;
+
+// The ScheduleWakeup result says "(in Ns)"; the wakeup is that many seconds after the result record.
+function wakeupFromResult(content, timestamp) {
+  const text = typeof content === 'string' ? content
+    : Array.isArray(content) ? content.filter(c => c?.type === 'text').map(c => c.text).join(' ') : '';
+  const m = text.match(/\(in (\d+)s\)/);
+  const base = timestamp ? new Date(timestamp).getTime() : NaN;
+  return m && Number.isFinite(base) ? base + Number(m[1]) * 1000 : null;
+}
 
 // Extracts an effort level from one transcript line (parsed text or raw JSONL).
 // Two sources, later transcript lines win at the call site:
@@ -38,6 +47,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
     firstTimestamp: null, agentMap: new Map(),
     lastApiTimestamp: null, lastEffort: '', lastTodos: null, ccVersion: '',
     lastCompactBoundaryTs: null, compactSummaryTokens: 0, sessionBaselineTokens: 0,
+    wakeupAt: null,
   };
   if (!transcriptPath || !fs.existsSync(transcriptPath)) return empty;
 
@@ -66,6 +76,11 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
   // so clear-born sessions inherit it from the predecessor transcript.
   let clearBorn = false;
   let lastTodos = null;
+  // Session wakeup (ScheduleWakeup): one pending at most, the latest scheduled replaces it; cleared by
+  // stop or by the scheduled_task_fire record. Uses wait here for their result, which may land in a
+  // later incremental read.
+  let wakeupAt = null;
+  const wakeupUses = new Map();
   const agentMap = new Map();
   const completedAgents = new Set();
   const stateCachePath = sessionId
@@ -114,6 +129,8 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
           lastCompactBoundaryTs = s.lastCompactBoundaryTs || null;
           compactSummaryTokens = s.compactSummaryTokens || 0;
           sessionBaselineTokens = s.sessionBaselineTokens || 0;
+          wakeupAt = Number.isFinite(s.wakeupAt) ? s.wakeupAt : null;
+          for (const [id, stop] of (s.wakeupUseEntries || [])) wakeupUses.set(id, stop);
           for (const [id, data] of (s.agentMapEntries || [])) agentMap.set(id, data);
           for (const id of (s.completedAgentsList || [])) completedAgents.add(id);
         }
@@ -166,6 +183,12 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
             txt = raw.filter(c => c.type === 'text').map(c => c.text).join(' ');
             for (const c of raw) {
               if (c.type === 'tool_result' && agentMap.has(c.tool_use_id)) completedAgents.add(c.tool_use_id);
+              if (c.type === 'tool_result' && wakeupUses.has(c.tool_use_id)) {
+                const stop = wakeupUses.get(c.tool_use_id);
+                wakeupUses.delete(c.tool_use_id);
+                if (stop && !c.is_error) wakeupAt = null;
+                else if (!stop) wakeupAt = wakeupFromResult(c.content, msg.timestamp) ?? wakeupAt;
+              }
             }
           }
           // Session effort: last /effort record (typed args or picker confirmation stdout) wins.
@@ -186,6 +209,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
             }
           }
         }
+        if (msg.type === 'system' && msg.subtype === 'scheduled_task_fire') wakeupAt = null;
         // CC marks compaction boundaries via multiple flags across versions.
         // OR them so a schema tweak on one side doesn't silently zero the counter.
         const isCompactBoundary =
@@ -230,6 +254,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
                 bg: c.input?.run_in_background || false, name: c.input?.name || '',
                 startTime: msg.timestamp || null,
               });
+              if (c.name === 'ScheduleWakeup') wakeupUses.set(c.id, c.input?.stop === true);
               // Latest TodoWrite wins — transcript order == chronological.
               // Redact content/activeForm here so a secret pasted into a todo never
               // persists raw to the state cache on disk (or renders raw in the bar).
@@ -283,6 +308,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
             firstTimestamp, userSeen, lastApiTimestamp, lastEffort, clearBorn,
             lastTodos, ccVersion,
             lastCompactBoundaryTs, compactSummaryTokens, sessionBaselineTokens,
+            wakeupAt, wakeupUseEntries: [...wakeupUses.entries()],
             agentMapEntries: [...agentMap.entries()],
             completedAgentsList: [...completedAgents],
           },
@@ -299,6 +325,7 @@ function parseTranscript(transcriptPath, sessionId, claudeDir) {
     lastUsage, lastUserMessage, firstTimestamp, agentMap,
     lastApiTimestamp, lastEffort, lastTodos, ccVersion,
     lastCompactBoundaryTs, compactSummaryTokens, sessionBaselineTokens,
+    wakeupAt,
   };
 }
 

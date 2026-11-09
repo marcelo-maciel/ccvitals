@@ -275,6 +275,15 @@ function buildCacheStr(promptCache) {
   return ` ${C.gray}| cache ${tc}exp ${hh}:${mm}:${ss}${ttl}${C.reset}`;
 }
 
+// Pending session wakeup (ScheduleWakeup): it only fires while this Claude Code session stays open.
+function buildWakeupStr(wakeupAt, now) {
+  if (!Number.isFinite(wakeupAt) || wakeupAt <= now) return '';
+  const at = new Date(wakeupAt);
+  const hh = String(at.getHours()).padStart(2, '0');
+  const mm = String(at.getMinutes()).padStart(2, '0');
+  return `${C.yellow}⏰ ${hh}:${mm}${C.reset}`;
+}
+
 function buildTodoStr(lastTodos) {
   if (!Array.isArray(lastTodos) || lastTodos.length === 0) return '';
   const total = lastTodos.length;
@@ -318,5 +327,5 @@ function computeSessionDur(firstTimestamp, transcriptPath, activeMs) {
 module.exports = {
   buildContextBar, buildCostStr, buildRateLimitsStr,
   buildAgentLines, buildEffortStr, buildLine1, buildLine2, computeSessionDur,
-  buildCacheStr, buildTodoStr, buildAddedDirsStr,
+  buildCacheStr, buildTodoStr, buildAddedDirsStr, buildWakeupStr,
 };
