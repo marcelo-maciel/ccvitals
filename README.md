@@ -12,7 +12,7 @@ A two-line statusline that surfaces the signals a heavy Claude Code user actuall
 
 **Line 2**: context bar · rate limits with burn-rate delta · prompt-cache expiry with TTL · compact count · turns · todo progress.
 
-Plus optional extra lines: live subagents (spinner, model · effort, elapsed, slow/stuck warnings) and the last user message echoed back (with secret redaction).
+Plus optional extra lines: live subagents (spinner, model · effort, elapsed, slow/stuck warnings) and the last user message echoed back (with secret redaction), opened by `⏰ HH:MM` while a session wakeup (`ScheduleWakeup`) is pending, so you know the session must stay open.
 
 ## Differentiators
 

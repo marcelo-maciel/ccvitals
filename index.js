@@ -12,7 +12,7 @@ const { parseTranscript } = require('./transcript');
 const {
   buildContextBar, buildCostStr, buildRateLimitsStr,
   buildAgentLines, buildEffortStr, buildLine1, buildLine2, computeSessionDur,
-  buildCacheStr, buildTodoStr,
+  buildCacheStr, buildTodoStr, buildWakeupStr,
 } = require('./display');
 const { readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot, readActiveTime, readCompactCount, writeBridgeFile, lookupTask, readCacheAlarmConfig, isCacheAlarmDue, claimCacheAlarm, playSound } = require('./io');
 const { checkClaudeUpdate, formatUpdateStr, isNewer } = require('./update');
@@ -134,9 +134,14 @@ async function main(data) {
   const agentLines = buildAgentLines(t.agentMap, effort, model);
   if (agentLines) process.stdout.write(agentLines + '\n');
 
+  // The wakeup opens the last line, next to Claude Code's own footer (background shells), so a pending
+  // one says the session must stay open.
+  const wakeupStr = buildWakeupStr(t.wakeupAt, Date.now());
   if (t.lastUserMessage) {
     const display = t.lastUserMessage.length > 100 ? safeSlice(t.lastUserMessage, 97) + '...' : t.lastUserMessage;
-    process.stdout.write(`\ud83d\udcac ${display}\n`);
+    process.stdout.write(`${wakeupStr ? wakeupStr + ' ' : ''}\ud83d\udcac ${display}\n`);
+  } else if (wakeupStr) {
+    process.stdout.write(wakeupStr + '\n');
   }
 
   const elapsed = Date.now() - tickStart;
