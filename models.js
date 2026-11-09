@@ -14,9 +14,4 @@ function detectContextSize(modelId, fromInput) {
   return 200_000;
 }
 
-function formatContextLabel(size) {
-  const k = Math.floor(size / 1000);
-  return k >= 1000 ? `${Math.floor(k / 1000)}M` : `${k}k`;
-}
-
-module.exports = { detectContextSize, formatContextLabel };
+module.exports = { detectContextSize };

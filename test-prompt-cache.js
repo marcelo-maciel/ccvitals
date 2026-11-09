@@ -1,6 +1,6 @@
 'use strict';
 // Prompt-cache expiry test suite. Run: node --test
-// Covers: buildCacheStr reading CC's stdin `prompt_cache` (expiry + TTL label),
+// Covers: buildCacheStr reading CC's stdin `prompt_cache` (expiry clock, no TTL label),
 // cold/absent/malformed payloads, and the expiry color thresholds.
 const { test } = require('node:test');
 const assert = require('node:assert');
@@ -16,22 +16,22 @@ const clock = expiresAt => {
 };
 const warm = (expiresAt, ttl) => ({ warm: true, caching_observed: true, ttl, expires_at: expiresAt });
 
-// ── cache quente: horário local de expires_at + rótulo do TTL
-test('ttl 1h exibe expiração e rótulo', () => {
+// ── cache quente: só o horário local de expires_at, sem rótulo de TTL
+test('ttl 1h exibe só o horário', () => {
   const exp = nowSec() + 50 * 60;
-  assert.strictEqual(strip(buildCacheStr(warm(exp, '1h'))), ` | cache exp ${clock(exp)} 1h`);
+  assert.strictEqual(strip(buildCacheStr(warm(exp, '1h'))), ` | cache ${clock(exp)}`);
 });
 
-test('ttl 5m exibe rótulo 5m', () => {
+test('ttl 5m exibe só o horário', () => {
   const exp = nowSec() + 4 * 60;
-  assert.strictEqual(strip(buildCacheStr(warm(exp, '5m'))), ` | cache exp ${clock(exp)} 5m`);
+  assert.strictEqual(strip(buildCacheStr(warm(exp, '5m'))), ` | cache ${clock(exp)}`);
 });
 
 // ── ttl desconhecido: horário sem rótulo
 for (const [name, ttl] of [['ausente', undefined], ['null', null], ['2h', '2h']]) {
   test(`ttl ${name} exibe horário sem rótulo`, () => {
     const exp = nowSec() + 30 * 60;
-    assert.strictEqual(strip(buildCacheStr(warm(exp, ttl))), ` | cache exp ${clock(exp)}`);
+    assert.strictEqual(strip(buildCacheStr(warm(exp, ttl))), ` | cache ${clock(exp)}`);
   });
 }
 
@@ -62,7 +62,7 @@ for (const [name, secs, color] of [
   ['10min usa soft', 600, C.soft],
 ]) {
   test(`cor: ${name}`, () => {
-    assert.ok(buildCacheStr(warm(nowSec() + secs, '5m')).includes(`${color}exp `));
+    assert.ok(buildCacheStr(warm(nowSec() + secs, '5m')).includes(`cache ${color}`));
   });
 }
 
