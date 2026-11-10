@@ -10,7 +10,7 @@ A two-line statusline that surfaces the signals a heavy Claude Code user actuall
 
 **Line 1**: update alert · model · effort · plan badge · cwd · added directories · branch (uncommitted, push/pull) · current task.
 
-**Line 2**: context bar (% used) · prompt-cache expiry · rate limits with burn-rate delta · compact count · todo progress.
+**Line 2**: context bar (% used) · rate limits with burn-rate delta · compact count · todo progress · prompt-cache expiry.
 
 Plus optional extra lines: live subagents (spinner, model · effort, elapsed, slow/stuck warnings) and the last user message echoed back (with secret redaction), opened by `⏰ HH:MM` while a session wakeup (`ScheduleWakeup`) is pending, so you know the session must stay open.
 
