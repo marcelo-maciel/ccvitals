@@ -2,7 +2,7 @@
   "name": "ccvitals",
   "version": "1.0.0",
   "private": true,
-  "description": "Operational HUD statusline for Claude Code — live session vitals: effort, subagents, rate-limit burn rate, context, cost. Incremental transcript parsing, plugin system.",
+  "description": "Operational HUD statusline for Claude Code — live session vitals: effort, subagents, rate-limit burn rate, context. Incremental transcript parsing, plugin system.",
   "main": "index.js",
   "scripts": {
     "test": "node --test"

@@ -86,7 +86,7 @@ function atomicWrite(filePath, content) {
   const tmp = `${filePath}.tmp.${process.pid}`;
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    // mode 0600: caches hold cost / rate-limit / account-adjacent data — keep them
+    // mode 0600: caches hold rate-limit / account-adjacent data — keep them
     // owner-only on shared *nix hosts. renameSync preserves the tmp file's perms.
     // No-op on Windows (POSIX mode bits ignored), harmless.
     fs.writeFileSync(tmp, content, { mode: 0o600 });
@@ -148,8 +148,8 @@ function colorByPace(delta, elapsedPct, bounds) {
 
 // ─── Orphan sweep (~1% of ticks) ─────────────────────────
 // aggWindowDays controls retention for per-session statusline caches
-// (state, active-time, compact). 0 = never sweep. Defaults to 30 to match
-// the cost rolling window. Tmp bridge files always sweep at 7d (short-lived).
+// (state, active-time, compact). 0 = never sweep. Defaults to 30.
+// Tmp bridge files always sweep at 7d (short-lived).
 function sweepOrphans(claudeDir, aggWindowDays = 30) {
   if (Math.random() >= 0.01) return;
   try {
