@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { atomicWrite, logError, C, safeSlice, redact } = require('./utils');
+const { atomicWrite, logError, C, safeSlice, redact, CACHE_TTL_MS } = require('./utils');
 
 // ─── Settings (mtime-cached) ──────────────────────────────
 const _settingsPath = path.join(
@@ -237,7 +237,6 @@ function lookupTask(sessionId, claudeDir) {
 // Opt-in via config.json `cacheAlarm: { leadMinutes, sound }`. Fires once per cache
 // window, `leadMinutes` before CC's prompt_cache.expires_at. Needs statusLine
 // `refreshInterval` in settings.json: without it an idle session never re-renders.
-const CACHE_TTL_MS = { '5m': 5 * 60000, '1h': 60 * 60000 };
 const SESSION_ID_RE = /^[A-Za-z0-9-]+$/;
 
 function readCacheAlarmConfig() {

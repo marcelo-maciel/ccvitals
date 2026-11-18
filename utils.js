@@ -17,6 +17,8 @@ const AGENT_ZOMBIE_SECS = 1800;
 const ESTIMATED_STARTING_TOKENS = 31500;
 const MAX_RL_RESET_MINUTES = 7 * 24 * 60;
 const FIVE_HOURS_MS = 5 * 3600000;
+// Prompt-cache TTLs Claude Code reports in stdin `prompt_cache.ttl`.
+const CACHE_TTL_MS = { '5m': 5 * 60000, '1h': 60 * 60000 };
 
 // ─── Color theme ──────────────────────────────────────────
 const C = {
@@ -183,7 +185,7 @@ function sweepOrphans(claudeDir, aggWindowDays = 30) {
 module.exports = {
   C, SEP, EFFORT_CONFIG,
   AGENT_WARN_SECS, AGENT_CRIT_SECS, AGENT_ZOMBIE_SECS,
-  ESTIMATED_STARTING_TOKENS, MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
+  ESTIMATED_STARTING_TOKENS, MAX_RL_RESET_MINUTES, FIVE_HOURS_MS, CACHE_TTL_MS,
   atomicWrite, logError, getErrors, redact,
   formatDuration, safeSlice, colorByPace, sweepOrphans,
 };

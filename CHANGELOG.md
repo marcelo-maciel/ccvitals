@@ -14,7 +14,7 @@ First public release.
 - Subagent tracking with spinner, per-agent context bar, model · effort badge, zombie cleanup, slow/stuck warnings, worktree marker.
 - Rate limits with cross-session aggregation (MAX across parallel sessions of the same account and org; switching login never shows the previous account's quota; sessions authenticated by `CLAUDE_CODE_OAUTH_TOKEN` and by `/login` are kept apart by their 7-day reset) and burn-rate delta (`tokens%_used − time%_elapsed`). Usage and delta share one pace color: the lead tolerated is a share of the window still left (`thresholds.rateLimit`, default 10% warn / 20% danger), so early bursts stay calm and high usage behind pace stays green.
 - One status palette: ok/warn/danger in 256-color, so signals don't shift with the terminal theme.
-- Prompt-cache absolute expiry (`cache HH:MM:SS`), read from Claude Code's `prompt_cache` stdin field (CC 2.1.251+).
+- Prompt-cache countdown (`cache 42m`) colored by the share of the TTL left, read from Claude Code's `prompt_cache` stdin field (CC 2.1.251+).
 - Opt-in prompt-cache alarm (`cacheAlarm` in `config.json`, Windows only): one sound per cache window, `leadMinutes` before expiry, deduplicated across concurrent renders by an exclusive-create lock file.
 - Compact counter resilient to Claude Code schema drift (JSONL flags OR PreCompact hook, whichever observes more).
 - Account/plan badge with subscription type; the name is blue for a personal plan and green for team/enterprise. `STATUSLINE_ACCOUNT=<name>:<plan>` overrides it for sessions on `CLAUDE_CODE_OAUTH_TOKEN`, which the `/login` files cannot see.
