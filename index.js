@@ -102,7 +102,7 @@ async function main(data) {
   if (ccVer) {
     const undetermined = !outdated && updateResult.error && updateResult.error !== 'no-cli';
     const color = outdated ? C.danger : undetermined ? C.soft : C.ok;
-    ccVerStr = ` ${color}(${ccVer})${C.reset}`;
+    ccVerStr = ` ${color}${ccVer}${C.reset}`;
   }
 
   // Prefer MAX(JSONL-derived, PreCompact-hook count) — protects the counter

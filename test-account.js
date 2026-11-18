@@ -52,3 +52,17 @@ test('valor malformado é ignorado (cai no /login)', () => {
     assert.strictEqual(a.subscriptionType, 'team', `"${bad}"`);
   }
 });
+
+// Selo: sem bolinha, a cor vai no nome. Pessoal azul, team/enterprise (Pitzi/Renov) verde.
+const { buildAccountStr } = require('./account.js');
+const { C, SEP } = require('./utils.js');
+const badgeCases = [
+  ['pessoal (pro) pinta o nome de azul', { displayName: 'Marcelo', subscriptionType: 'pro' }, `${SEP}${C.personalColor}Marcelo${C.reset} ${C.gray}\u00b7 Pro${C.reset}`],
+  ['team pinta o nome de verde', { displayName: 'Marcelo', subscriptionType: 'team' }, `${SEP}${C.teamColor}Marcelo${C.reset} ${C.gray}\u00b7 Team${C.reset}`],
+  ['enterprise conta como team', { displayName: 'Marcelo', subscriptionType: 'Enterprise' }, `${SEP}${C.teamColor}Marcelo${C.reset} ${C.gray}\u00b7 Enterprise${C.reset}`],
+  ['sem plano fica azul e sem rótulo', { displayName: 'Marcelo', subscriptionType: null }, `${SEP}${C.personalColor}Marcelo${C.reset}`],
+];
+for (const [name, data, want] of badgeCases) {
+  test(`selo: ${name}`, () => assert.strictEqual(buildAccountStr(data), want));
+}
+test('selo: sem nome nem plano não renderiza', () => assert.strictEqual(buildAccountStr({}), ''));

@@ -17,8 +17,7 @@ First public release.
 - Prompt-cache absolute expiry (`cache HH:MM:SS`), read from Claude Code's `prompt_cache` stdin field (CC 2.1.251+).
 - Opt-in prompt-cache alarm (`cacheAlarm` in `config.json`, Windows only): one sound per cache window, `leadMinutes` before expiry, deduplicated across concurrent renders by an exclusive-create lock file.
 - Compact counter resilient to Claude Code schema drift (JSONL flags OR PreCompact hook, whichever observes more).
-- Rolling 30-day cost tracking with thresholds, race-safe across sessions.
-- Account/plan badge with subscription type. `STATUSLINE_ACCOUNT=<name>:<plan>` overrides it for sessions on `CLAUDE_CODE_OAUTH_TOKEN`, which the `/login` files cannot see.
+- Account/plan badge with subscription type; the name is blue for a personal plan and green for team/enterprise. `STATUSLINE_ACCOUNT=<name>:<plan>` overrides it for sessions on `CLAUDE_CODE_OAUTH_TOKEN`, which the `/login` files cannot see.
 - Secret redaction in last-user-message display (postgres/mysql/mongo URLs, tokens, JWTs, Bearer/x-api-key headers).
 - Todo progress display with active task label.
 - Pending session wakeup: `⏰ HH:MM` opens the last line while a `ScheduleWakeup` is pending (the latest schedule wins; cleared by `stop`, by the `scheduled_task_fire` record, or once the time passes). The wakeup only fires while the session stays open.
