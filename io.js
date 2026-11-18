@@ -27,7 +27,7 @@ function _readLocalCfg() {
   } catch { return _localCfgCache || {}; }
 }
 
-// aggWindowDays: integer days for cost / cache cleanup. 0 = all-time, no filter.
+// aggWindowDays: integer days of per-session cache retention. 0 = all-time, no filter.
 // Read from statusline-local config.json so it lives next to the code that uses it
 // (CC's settings.json schema rejects unknown top-level keys, so we can't put it there).
 // Overlaid on every readSettings() call — has its own mtime cache, so it's cheap.
@@ -39,7 +39,7 @@ function _aggWindowDaysFromCfg() {
 function readSettings() {
   const defaults = {
     effort: '', modelEfforts: {}, fastMode: false, aggWindowDays: 30,
-    thresholds: { costSession: [15, 30], costMonthly: [300, 800], rateLimit: [10, 20], push: [3, 10] },
+    thresholds: { rateLimit: [10, 20], push: [3, 10] },
   };
   try {
     const st = fs.statSync(_settingsPath);
@@ -61,7 +61,7 @@ function readSettings() {
     out.fastMode = s.fastMode === true;
     const th = s.statusline?.thresholds;
     if (th && typeof th === 'object') {
-      for (const k of ['costSession', 'costMonthly', 'rateLimit', 'push']) {
+      for (const k of ['rateLimit', 'push']) {
         const v = th[k];
         if (Array.isArray(v) && v.length === 2 && Number.isFinite(v[0]) && Number.isFinite(v[1]) && v[0] <= v[1]) {
           out.thresholds[k] = v;
@@ -89,95 +89,6 @@ function resolveDefaultEffort(settings, modelId) {
   const id = String(modelId || '').replace(/\[[^\]]*\]$/, '').replace(/-\d{8}$/, '');
   const map = settings.modelEfforts || {};
   return (id && map[id]) || settings.effort;
-}
-
-// ─── Rolling cost (configurable window, race-safe, delta-tracked) ─────
-// Delta tracking: CC sometimes resets `cost.total_cost_usd` mid-session
-// (compaction, auto-recovery). We split each session entry into
-// { baseCost, currentCost } — when the payload value drops, we move the
-// previous current into base. Total = baseCost + currentCost; never regresses.
-// Legacy entries `{ cost }` are migrated transparently on first touch.
-function _entryTotal(s) {
-  if (!s) return 0;
-  if (typeof s.cost === 'number') return s.cost; // legacy
-  return (s.baseCost || 0) + (s.currentCost || 0);
-}
-function trackMonthlyCost(cost, sessionId, claudeDir, aggWindowDays = 30) {
-  const costCachePath = path.join(claudeDir, 'cache', 'cost-monthly.json');
-  const readCache = () => { try { return JSON.parse(fs.readFileSync(costCachePath, 'utf8')); } catch { return {}; } };
-  try {
-    let cache = readCache();
-    if (!cache.sessions) cache.sessions = {};
-    const cutoff = aggWindowDays > 0 ? Date.now() - aggWindowDays * 86400000 : 0;
-    let needsWrite = false;
-    if (sessionId && cost != null) {
-      const prev = cache.sessions[sessionId];
-      if (!prev) needsWrite = true;
-      else if (typeof prev.cost === 'number') needsWrite = true; // legacy → migrate
-      else if ((prev.currentCost || 0) !== cost) needsWrite = true;
-    }
-    if (cutoff > 0) {
-      for (const s of Object.values(cache.sessions)) {
-        if (s.date < cutoff) { needsWrite = true; break; }
-      }
-    }
-    if (needsWrite) {
-      // Re-read right before write to minimize races with concurrent sessions.
-      // Residual TOCTOU remains: another process can write between this re-read
-      // and atomicWrite, dropping that update. Tolerável — cada sessão regrava o
-      // próprio valor na tick seguinte, então o cache é eventualmente consistente.
-      cache = readCache();
-      if (!cache.sessions) cache.sessions = {};
-      if (sessionId && cost != null) {
-        const prev = cache.sessions[sessionId];
-        let baseCost = 0, currentCost = cost;
-        if (prev && typeof prev.cost === 'number') {
-          // Legacy migration: treat the old absolute value as currentCost only
-          // if the new payload is >= old (no regression yet); otherwise promote
-          // it to baseCost so we don't lose history when CC reset mid-session.
-          if (cost >= prev.cost) { baseCost = 0; currentCost = cost; }
-          else { baseCost = prev.cost; currentCost = cost; }
-        } else if (prev) {
-          baseCost = prev.baseCost || 0;
-          const prevCur = prev.currentCost || 0;
-          if (cost < prevCur) { baseCost += prevCur; currentCost = cost; }
-          else { currentCost = cost; }
-        }
-        cache.sessions[sessionId] = { baseCost, currentCost, date: Date.now() };
-      }
-      if (cutoff > 0) {
-        for (const [id, s] of Object.entries(cache.sessions)) {
-          if (s.date < cutoff) delete cache.sessions[id];
-        }
-      }
-      atomicWrite(costCachePath, JSON.stringify(cache));
-    }
-    // ponytail: dedup de custo herdado. Sessões resumidas/forkadas podem
-    // reaparecer com o total_cost_usd de outra sessão (o CC expõe o custo do
-    // "pai" antes da nova firmar o seu) → mesmo gasto contado 2x. Sinal: custo
-    // float idêntico a 8 casas E escrito dentro de DEDUP_WINDOW_MS de uma
-    // entrada já contada (o fork é observado quase junto com o pai). A janela
-    // evita colapsar sessões triviais distintas que coincidam no custo mas
-    // rodaram em horas diferentes.
-    // Tetos conhecidos: (a) se o pai CONTINUA após o fork, o fantasma congela
-    // num valor menor e diverge — vira entrada espúria não detectável aqui;
-    // (b) duas sessões triviais idênticas dentro da janela colapsam. Upgrade:
-    // lineage real se o CC expor parent session id no payload.
-    const DEDUP_WINDOW_MS = 5 * 60 * 1000;
-    let total = 0;
-    const seenByCost = new Map(); // costKey -> [datas já contadas]
-    for (const s of Object.values(cache.sessions)) {
-      const v = _entryTotal(s);
-      if (v === 0) continue;
-      const k = v.toFixed(8);
-      const when = s.date || 0;
-      const dates = seenByCost.get(k);
-      if (dates && dates.some(d => Math.abs(d - when) <= DEDUP_WINDOW_MS)) continue;
-      total += v;
-      if (dates) dates.push(when); else seenByCost.set(k, [when]);
-    }
-    return total;
-  } catch (e) { logError('cost-cache', e); return 0; }
 }
 
 // ─── Cross-session rate-limit aggregation ─────────────────
@@ -408,7 +319,7 @@ function playSound(file) {
 }
 
 module.exports = {
-  readSettings, resolveDefaultEffort, trackMonthlyCost, trackRateLimitSnapshot,
+  readSettings, resolveDefaultEffort, trackRateLimitSnapshot,
   readActiveTime, readCompactCount,
   writeBridgeFile, lookupTask,
   readCacheAlarmConfig, isCacheAlarmDue, claimCacheAlarm, playSound,

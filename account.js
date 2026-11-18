@@ -88,21 +88,18 @@ const TEAM_PLANS = new Set(['team', 'enterprise']);
 function classifyAccount(sub) {
   const s = (sub || '').toLowerCase();
   const isTeam = TEAM_PLANS.has(s);
-  // \u25CF = ● (BLACK CIRCLE) — simple, ANSI-colorable (emoji aren't tinted by ANSI on most terminals).
-  const icon = '\u25CF';
-  const iconColor = isTeam ? C.teamColor : C.personalColor;
-  let planLabel;
-  if (!s) planLabel = '';
-  else planLabel = s.charAt(0).toUpperCase() + s.slice(1);
-  return { icon, iconColor, planLabel, isTeam };
+  // The account kind rides on the name color: personal vs team org at a glance, no extra glyph.
+  const nameColor = isTeam ? C.teamColor : C.personalColor;
+  const planLabel = s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+  return { nameColor, planLabel, isTeam };
 }
 
 function buildAccountStr(data) {
   if (!data || (!data.displayName && !data.subscriptionType)) return '';
-  const { icon, iconColor, planLabel } = classifyAccount(data.subscriptionType);
+  const { nameColor, planLabel } = classifyAccount(data.subscriptionType);
   const name = data.displayName || '?';
   const plan = planLabel ? ` ${C.gray}\u00b7 ${planLabel}${C.reset}` : '';
-  return `${SEP}${iconColor}${icon}${C.reset} ${C.accent}${name}${C.reset}${plan}`;
+  return `${SEP}${nameColor}${name}${C.reset}${plan}`;
 }
 
 module.exports = { readAccount, classifyAccount, buildAccountStr };

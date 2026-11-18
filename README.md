@@ -1,6 +1,6 @@
 # ccvitals
 
-> Operational HUD statusline for [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) — live session vitals: effort, subagents, rate-limit burn rate, context, cost. Incremental transcript parsing, plugin system.
+> Operational HUD statusline for [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) — live session vitals: effort, subagents, rate-limit burn rate, context. Incremental transcript parsing, plugin system.
 
 <!-- TODO: add demo GIF here -->
 
@@ -8,7 +8,7 @@
 
 A two-line statusline that surfaces the signals a heavy Claude Code user actually needs:
 
-**Line 1**: update alert · model · effort · plan badge · cwd · added directories · branch (uncommitted, push/pull) · current task.
+**Line 1**: update alert · model · effort · Claude Code version · account badge (name in blue for a personal plan, green for team/enterprise, then the plan) · cwd · added directories · branch (uncommitted, push/pull) · current task.
 
 **Line 2**: context bar (% used) · rate limits with burn-rate delta · compact count · todo progress · prompt-cache expiry.
 
@@ -53,8 +53,6 @@ All optional. Add a `statusline` block to `~/.claude/settings.json`:
   "statusline": {
     "accent": "blue",
     "thresholds": {
-      "costSession": [15, 30],
-      "costMonthly": [300, 800],
       "rateLimit": [10, 20],
       "push": [3, 10]
     }
@@ -65,8 +63,6 @@ All optional. Add a `statusline` block to `~/.claude/settings.json`:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `accent` | string | `blue` | One of: `orange`, `blue`, `teal`, `green`, `lavender`, `rose`, `gold`, `slate`, `cyan`. |
-| `thresholds.costSession` | `[low, high]` | `[15, 30]` | USD. Coloring boundaries for current session cost. |
-| `thresholds.costMonthly` | `[low, high]` | `[300, 800]` | USD. Coloring boundaries for rolling 30-day cost. |
 | `thresholds.rateLimit` | `[low, high]` | `[10, 20]` | Percent of the window still left. The `5h`/`7d` chip turns warn when the burn-rate delta exceeds `low`% of the time left, danger past `high`%. Example: halfway through, warn above +5, danger above +10. |
 | `thresholds.push` | `[low, high]` | `[3, 10]` | Commit count. Coloring for git push/pull indicators. |
 
