@@ -3,7 +3,7 @@ const fs = require('fs');
 const {
   C, SEP, EFFORT_CONFIG, colorByPace, formatDuration, logError, safeSlice, redact,
   ESTIMATED_STARTING_TOKENS, AGENT_WARN_SECS, AGENT_CRIT_SECS,
-  MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
+  MAX_RL_RESET_MINUTES, FIVE_HOURS_MS, CACHE_TTL_MS,
 } = require('./utils');
 const { detectContextSize } = require('./models');
 
@@ -252,14 +252,20 @@ function buildCacheStr(promptCache) {
   const expMs = expiresAt * 1000;
   const remaining = expMs - Date.now();
   if (remaining <= 0) return '';
-  // Absolute expiry timestamp instead of countdown — CC re-renders on events and when a
-  // warm cache reaches expires_at, so a relative countdown would freeze between renders.
-  const exp = new Date(expMs);
-  const hh = String(exp.getHours()).padStart(2, '0');
-  const mm = String(exp.getMinutes()).padStart(2, '0');
-  const ss = String(exp.getSeconds()).padStart(2, '0');
-  const tc = remaining < 30_000 ? C.danger : remaining < 120_000 ? C.warn : C.soft;
-  return ` ${C.gray}| cache ${tc}${hh}:${mm}:${ss}${C.reset}`;
+  // Whole minutes, rounded up: the countdown only advances on statusLine `refreshInterval`
+  // (60 s here), so seconds would sit frozen between renders.
+  const mins = Math.ceil(remaining / 60000);
+  return ` ${C.gray}| cache ${cacheExpiryColor(remaining, promptCache.ttl)}${mins}m${C.reset}`;
+}
+
+// Thresholds scale with the TTL so 1h and 5m windows turn at the same point of their life;
+// on 1h, warn starts at 20 min, the default cacheAlarm lead.
+function cacheExpiryColor(remaining, ttl) {
+  if (!Object.hasOwn(CACHE_TTL_MS, ttl)) return C.soft;
+  const ttlMs = CACHE_TTL_MS[ttl];
+  if (remaining <= ttlMs * 0.1) return C.danger;
+  if (remaining <= ttlMs / 3) return C.warn;
+  return C.ok;
 }
 
 // Pending session wakeup (ScheduleWakeup): it only fires while this Claude Code session stays open.

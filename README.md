@@ -18,7 +18,7 @@ Plus optional extra lines: live subagents (spinner, model · effort, elapsed, sl
 
 - **Incremental transcript parsing** — caches per-session state (mtime/size + SHA1 head fingerprint); only the delta is parsed each render.
 - **Burn-rate delta on rate limits** — `tokens%_used − time%_elapsed`. Positive = burning faster than the window allows. The chip is colored by pace, not by raw usage: the lead it tolerates is a share of the window still left, so an early burst stays green while the same lead near the reset turns red, and high usage behind pace stays green.
-- **Absolute prompt-cache expiry** — shows `cache HH:MM:SS`, not a stale countdown. Expiry comes from Claude Code's `prompt_cache` stdin field (2.1.251+), so the 1h subscription TTL and the 5m drop on usage credits are both reflected; older versions show no cache segment.
+- **Prompt-cache countdown** — shows `cache 42m` (whole minutes, rounded up), green above 1/3 of the TTL, yellow up to 1/3, red up to 10%, hidden once expired. It advances on `refreshInterval` (see the alarm section). Expiry comes from Claude Code's `prompt_cache` stdin field (2.1.251+), so the 1h subscription TTL and the 5m drop on usage credits are both reflected; older versions show no cache segment.
 - **Subagent tracking** — spinner, model badge, effort, elapsed, zombie cleanup, slow/stuck warnings, worktree marker.
 - **Secret redaction** — postgres/mysql/mongo URLs, sk-/sk-ant-/ghp_/AKIA/SG./JWT tokens, Bearer/x-api-key headers, password assignments are scrubbed from the echoed last-user-message.
 - **Compact-boundary multi-flag** — resilient to Claude Code schema drift across versions.
