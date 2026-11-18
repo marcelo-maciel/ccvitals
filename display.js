@@ -291,7 +291,7 @@ function buildTodoStr(lastTodos) {
 }
 
 function buildLine2(p) {
-  return `${p.ctx}${p.rlStr}${p.compactStr}${p.todoStr || ''}${p.cacheStr}`;
+  return `${p.ctx}${p.cacheStr}${p.rlStr}${p.compactStr}${p.todoStr || ''}`;
 }
 
 module.exports = {
