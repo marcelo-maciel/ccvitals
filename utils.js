@@ -21,9 +21,10 @@ const FIVE_HOURS_MS = 5 * 3600000;
 // ─── Color theme ──────────────────────────────────────────
 const C = {
   reset: '\x1b[0m', gray: '\x1b[38;5;245m', soft: '\x1b[38;5;250m',
-  barEmpty: '\x1b[38;5;238m', green: '\x1b[32m', yellow: '\x1b[33m',
-  warn: '\x1b[38;5;221m', orange: '\x1b[38;5;208m', danger: '\x1b[38;5;203m',
-  red: '\x1b[31m', bold: '\x1b[1m', cyan: '\x1b[36m',
+  barEmpty: '\x1b[38;5;238m',
+  // Status signals use only ok/warn/danger: 256-color, so they don't shift with the terminal theme.
+  ok: '\x1b[38;5;114m', warn: '\x1b[38;5;221m', danger: '\x1b[38;5;203m',
+  orange: '\x1b[38;5;208m', bold: '\x1b[1m', cyan: '\x1b[36m',
   personalColor: '\x1b[38;5;39m', teamColor: '\x1b[38;5;42m',
 };
 const accentMap = {
@@ -134,10 +135,15 @@ function safeSlice(s, n) {
   return arr.length <= n ? s : arr.slice(0, n).join('');
 }
 
-function colorByThreshold(value, bounds, palette) {
-  const [low, mid] = bounds;
-  const p = palette || [C.green, C.warn, C.danger];
-  return value < low ? p[0] : value < mid ? p[1] : p[2];
+// Rate-limit pace color. The lead it tolerates (delta = used% − elapsed%) is a share of the
+// window still left, so an early burst has room to even out while the same lead near the
+// reset means hitting the limit first. bounds = [warn, danger], percent of the remaining window.
+function colorByPace(delta, elapsedPct, bounds) {
+  const remaining = 100 - elapsedPct;
+  const [warn, danger] = bounds;
+  if (delta > remaining * danger / 100) return C.danger;
+  if (delta > remaining * warn / 100) return C.warn;
+  return C.ok;
 }
 
 // ─── Orphan sweep (~1% of ticks) ─────────────────────────
@@ -179,5 +185,5 @@ module.exports = {
   AGENT_WARN_SECS, AGENT_CRIT_SECS, AGENT_ZOMBIE_SECS,
   ESTIMATED_STARTING_TOKENS, MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
   atomicWrite, logError, getErrors, redact,
-  formatDuration, safeSlice, colorByThreshold, sweepOrphans,
+  formatDuration, safeSlice, colorByPace, sweepOrphans,
 };

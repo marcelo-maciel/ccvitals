@@ -17,7 +17,7 @@ Plus optional extra lines: live subagents (spinner, model · effort, elapsed, sl
 ## Differentiators
 
 - **Incremental transcript parsing** — caches per-session state (mtime/size + SHA1 head fingerprint); only the delta is parsed each render.
-- **Burn-rate delta on rate limits** — `tokens%_used − time%_elapsed`. Positive = burning faster than the window allows.
+- **Burn-rate delta on rate limits** — `tokens%_used − time%_elapsed`. Positive = burning faster than the window allows. The chip is colored by pace, not by raw usage: the lead it tolerates is a share of the window still left, so an early burst stays green while the same lead near the reset turns red, and high usage behind pace stays green.
 - **Absolute prompt-cache expiry** — shows `cache HH:MM:SS`, not a stale countdown. Expiry comes from Claude Code's `prompt_cache` stdin field (2.1.251+), so the 1h subscription TTL and the 5m drop on usage credits are both reflected; older versions show no cache segment.
 - **Subagent tracking** — spinner, model badge, effort, elapsed, zombie cleanup, slow/stuck warnings, worktree marker.
 - **Secret redaction** — postgres/mysql/mongo URLs, sk-/sk-ant-/ghp_/AKIA/SG./JWT tokens, Bearer/x-api-key headers, password assignments are scrubbed from the echoed last-user-message.
@@ -55,7 +55,7 @@ All optional. Add a `statusline` block to `~/.claude/settings.json`:
     "thresholds": {
       "costSession": [15, 30],
       "costMonthly": [300, 800],
-      "rateLimit": [50, 80],
+      "rateLimit": [10, 20],
       "push": [3, 10]
     }
   }
@@ -67,7 +67,7 @@ All optional. Add a `statusline` block to `~/.claude/settings.json`:
 | `accent` | string | `blue` | One of: `orange`, `blue`, `teal`, `green`, `lavender`, `rose`, `gold`, `slate`, `cyan`. |
 | `thresholds.costSession` | `[low, high]` | `[15, 30]` | USD. Coloring boundaries for current session cost. |
 | `thresholds.costMonthly` | `[low, high]` | `[300, 800]` | USD. Coloring boundaries for rolling 30-day cost. |
-| `thresholds.rateLimit` | `[low, high]` | `[50, 80]` | Percent used. Coloring for `5h`/`7d` rate-limit chips. |
+| `thresholds.rateLimit` | `[low, high]` | `[10, 20]` | Percent of the window still left. The `5h`/`7d` chip turns warn when the burn-rate delta exceeds `low`% of the time left, danger past `high`%. Example: halfway through, warn above +5, danger above +10. |
 | `thresholds.push` | `[low, high]` | `[3, 10]` | Commit count. Coloring for git push/pull indicators. |
 
 ### Prompt-cache alarm (`config.json`)

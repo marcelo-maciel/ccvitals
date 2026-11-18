@@ -94,7 +94,7 @@ function _refresh(cachePath) {
 }
 
 function formatUpdateStr(result, outdated) {
-  if (outdated && result.latest) return `${C.green}\u2193${result.latest}${C.reset} `;
+  if (outdated && result.latest) return `${C.ok}\u2193${result.latest}${C.reset} `;
   if (result.error && result.error !== 'no-cli') return `${C.soft}\u2193(${result.error})${C.reset} `;
   return '';
 }
