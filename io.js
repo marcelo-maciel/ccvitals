@@ -39,7 +39,7 @@ function _aggWindowDaysFromCfg() {
 function readSettings() {
   const defaults = {
     effort: '', modelEfforts: {}, fastMode: false, aggWindowDays: 30,
-    thresholds: { costSession: [15, 30], costMonthly: [300, 800], rateLimit: [50, 80], push: [3, 10] },
+    thresholds: { costSession: [15, 30], costMonthly: [300, 800], rateLimit: [10, 20], push: [3, 10] },
   };
   try {
     const st = fs.statSync(_settingsPath);

@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const {
-  C, SEP, EFFORT_CONFIG, colorByThreshold, formatDuration, logError, safeSlice, redact,
+  C, SEP, EFFORT_CONFIG, colorByPace, formatDuration, logError, safeSlice, redact,
   ESTIMATED_STARTING_TOKENS, AGENT_WARN_SECS, AGENT_CRIT_SECS,
   MAX_RL_RESET_MINUTES, FIVE_HOURS_MS,
 } = require('./utils');
@@ -136,24 +136,23 @@ function _renderRl(rl, label, windowMs, apiAge, now, thresholds, agg) {
     (!resets && apiAge != null && apiAge > windowMs);
   if (stale) return ` ${C.gray}| ${C.soft}${label}:?${C.reset}`;
   const p = Math.round(used);
-  // C.danger is a softer salmon red than C.red (ANSI 31), easier to read when the digits flash hot.
-  const c = colorByThreshold(p, thresholds.rateLimit, [C.green, C.yellow, C.danger]);
-  let s = ` ${C.gray}| ${c}${label}:${p}%${p >= 100 ? ' \u{1F4B8}' : ''}${C.reset}`;
-  if (resets) {
-    const resetMs = resets * 1000 - now;
-    const mins = Math.max(0, Math.round(resetMs / 60000));
-    // Burn rate delta: tokens%_used - time%_elapsed. >0 = ahead of pace (burning fast).
-    const elapsedPct = Math.max(0, Math.min(100, (1 - resetMs / windowMs) * 100));
-    const delta = Math.round(p - elapsedPct);
-    const dColor = delta >= 15 ? C.danger : delta <= -15 ? C.green : C.gray;
-    const sign = delta > 0 ? '+' : '';
-    s += `${dColor}(${sign}${delta}%)${C.reset}`;
-    if (mins > 0 && mins <= MAX_RL_RESET_MINUTES) {
-      const t = mins < 60 ? `${mins}m` : mins < 1440
-        ? `${Math.floor(mins / 60)}h${mins % 60}m`
-        : `${Math.floor(mins / 1440)}d${Math.floor((mins % 1440) / 60)}h`;
-      s += `${C.soft}(${t})${C.reset}`;
-    }
+  // Without a reset time there is no pace to judge, so the chip stays neutral and shows no delta.
+  if (!resets) return ` ${C.gray}| ${C.soft}${label}:${p}%${p >= 100 ? ' \u{1F4B8}' : ''}${C.reset}`;
+  const resetMs = resets * 1000 - now;
+  // Burn rate delta: tokens%_used - time%_elapsed. >0 = ahead of pace (burning fast).
+  const elapsedPct = Math.max(0, Math.min(100, (1 - resetMs / windowMs) * 100));
+  const delta = Math.round(p - elapsedPct);
+  // Usage and delta share one pace color so the chip reads as a single signal.
+  const c = colorByPace(delta, elapsedPct, thresholds.rateLimit);
+  const sign = delta > 0 ? '+' : '';
+  let s = ` ${C.gray}| ${c}${label}:${p}%${p >= 100 ? ' \u{1F4B8}' : ''}${C.reset}`
+    + `${c}(${sign}${delta}%)${C.reset}`;
+  const mins = Math.max(0, Math.round(resetMs / 60000));
+  if (mins > 0 && mins <= MAX_RL_RESET_MINUTES) {
+    const t = mins < 60 ? `${mins}m` : mins < 1440
+      ? `${Math.floor(mins / 60)}h${mins % 60}m`
+      : `${Math.floor(mins / 1440)}d${Math.floor((mins % 1440) / 60)}h`;
+    s += `${C.soft}(${t})${C.reset}`;
   }
   return s;
 }
@@ -205,12 +204,12 @@ function buildAgentLines(agentMap, parentEffort, parentModel) {
     if (modelLabel && effortLabel) badge = ` ${C.accent}[${modelLabel} \u00b7 ${effortLabel}]${C.reset}`;
     else if (modelLabel) badge = ` ${C.accent}[${modelLabel}]${C.reset}`;
     else if (effortLabel) badge = ` ${C.accent}[${effortLabel}]${C.reset}`;
-    const tc = elapsed >= AGENT_CRIT_SECS ? C.red : elapsed >= AGENT_WARN_SECS ? C.yellow : C.gray;
+    const tc = elapsed >= AGENT_CRIT_SECS ? C.danger : elapsed >= AGENT_WARN_SECS ? C.warn : C.gray;
     const timeStr = a.startTime ? ` ${tc}${formatDuration(elapsed)}${C.reset}` : '';
-    const stuck = elapsed >= AGENT_CRIT_SECS ? ` ${C.red}\u26a0 stuck?${C.reset}`
-      : elapsed >= AGENT_WARN_SECS ? ` ${C.yellow}\u26a0 slow${C.reset}` : '';
-    const wt = a.isolation ? ` ${C.yellow}\u2442worktree${C.reset}` : '';
-    const sc = elapsed >= AGENT_CRIT_SECS ? C.red : elapsed >= AGENT_WARN_SECS ? C.yellow : C.cyan;
+    const stuck = elapsed >= AGENT_CRIT_SECS ? ` ${C.danger}\u26a0 stuck?${C.reset}`
+      : elapsed >= AGENT_WARN_SECS ? ` ${C.warn}\u26a0 slow${C.reset}` : '';
+    const wt = a.isolation ? ` ${C.warn}\u2442worktree${C.reset}` : '';
+    const sc = elapsed >= AGENT_CRIT_SECS ? C.danger : elapsed >= AGENT_WARN_SECS ? C.warn : C.cyan;
     const icon = a.bg ? `${C.soft}\u23f3${C.reset}` : `${sc}${spin[si]}${C.reset}`;
     const ctxStr = buildSubagentCtxBar(a.lastUsage, a.runtimeModel || a.model || parentModel);
     out.push(`  ${icon} ${C.cyan}${label}${C.reset}${typeStr}${badge}${timeStr}${ctxStr}${wt}${stuck}`);
@@ -269,14 +268,14 @@ function buildWakeupStr(wakeupAt, now) {
   const at = new Date(wakeupAt);
   const hh = String(at.getHours()).padStart(2, '0');
   const mm = String(at.getMinutes()).padStart(2, '0');
-  return `${C.yellow}⏰ ${hh}:${mm}${C.reset}`;
+  return `${C.warn}⏰ ${hh}:${mm}${C.reset}`;
 }
 
 function buildTodoStr(lastTodos) {
   if (!Array.isArray(lastTodos) || lastTodos.length === 0) return '';
   const total = lastTodos.length;
   const done = lastTodos.filter(t => t?.status === 'completed').length;
-  if (done === total) return ` ${C.gray}| ${C.green}▸ all done (${total}/${total})${C.reset}`;
+  if (done === total) return ` ${C.gray}| ${C.ok}▸ all done (${total}/${total})${C.reset}`;
   const active = lastTodos.find(t => t?.status === 'in_progress')
     || lastTodos.find(t => t?.status === 'pending');
   if (!active) return '';

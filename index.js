@@ -30,10 +30,10 @@ process.stdin.on('end', () => {
   clearTimeout(timeout);
   try {
     main(JSON.parse(input)).catch(e => {
-      try { process.stdout.write(`\x1b[31m! statusline crash: ${(e?.message || String(e)).substring(0, 80)}\x1b[0m\n`); } catch {}
+      try { process.stdout.write(`${C.danger}! statusline crash: ${(e?.message || String(e)).substring(0, 80)}${C.reset}\n`); } catch {}
     });
   } catch (e) {
-    try { process.stdout.write(`\x1b[31m! stdin parse: ${(e?.message || String(e)).substring(0, 80)}\x1b[0m\n`); } catch {}
+    try { process.stdout.write(`${C.danger}! stdin parse: ${(e?.message || String(e)).substring(0, 80)}${C.reset}\n`); } catch {}
   }
 });
 
@@ -86,7 +86,7 @@ async function main(data) {
   const rlStr = buildRateLimitsStr(data.rate_limits, thresholds, t.lastApiTimestamp, rlAgg);
   const taskStr = lookupTask(sessionId, claudeDir);
   const effortStr = buildEffortStr(effort);
-  const fastStr = fastMode ? `${C.yellow}\u26A1${C.reset}` : '';
+  const fastStr = fastMode ? `${C.warn}\u26A1${C.reset}` : '';
   const accountStr = buildAccountStr(account);
   // CC version is captured per session from transcript `version` field — refreshes naturally on new sessions.
   // Green = up-to-date, bright red = update available, soft gray = undetermined (first run / network err).
@@ -101,7 +101,7 @@ async function main(data) {
   let ccVerStr = '';
   if (ccVer) {
     const undetermined = !outdated && updateResult.error && updateResult.error !== 'no-cli';
-    const color = outdated ? '\x1b[91m' : undetermined ? C.soft : C.green;
+    const color = outdated ? C.danger : undetermined ? C.soft : C.ok;
     ccVerStr = ` ${color}(${ccVer})${C.reset}`;
   }
 
@@ -113,7 +113,7 @@ async function main(data) {
   const todoStr = buildTodoStr(t.lastTodos);
   const errs = getErrors();
   const errStr = errs.length
-    ? ` ${C.red}!${errs.length > 2 ? errs.length + ':' : ''}${errs.slice(-2).join(',')}${C.reset}` : '';
+    ? ` ${C.danger}!${errs.length > 2 ? errs.length + ':' : ''}${errs.slice(-2).join(',')}${C.reset}` : '';
 
   process.stdout.write(buildLine1({ updateStr, errStr, model, effortStr, ccVerStr, fastStr, accountStr, dir, cwd, addedDirs, branch, gitStatus, taskStr }) + '\n');
   process.stdout.write(buildLine2({ ctx, rlStr, cacheStr, compactStr, todoStr }) + '\n');
